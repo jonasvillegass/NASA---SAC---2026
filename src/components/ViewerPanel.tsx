@@ -141,8 +141,6 @@ interface Map2TabPanelProps {
   ) => void;
 }
 
-const FALLBACK_EPOCHS = ["2025.5 (t₁)", "2026.0 (t₂)", "2026.5 (t₃)", "2027.0 (t₄)"];
-
 const getEpochKey = (obs: SpherexObservation) => `${obs.obs_id}|${obs.bandpass}`;
 
 const isSameObs = (a: SpherexObservation | null | undefined, b: SpherexObservation | null | undefined) => {
@@ -223,7 +221,6 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
   // Floating Epoch Playback Bar state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1.0);
-  const [fallbackEpochIdx, setFallbackEpochIdx] = useState<number>(0);
   const [prevCutoutUrl, setPrevCutoutUrl] = useState<string | null>(null);
   const lastCutoutUrlRef = useRef<string | null>(null);
   const [isMap2Fullscreen, setIsMap2Fullscreen] = useState<boolean>(false);
@@ -279,30 +276,6 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
   const [isScanningBands, setIsScanningBands] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ current: number; total: number } | null>(null);
 
-  useEffect(() => {
-    if (selectedObs && cutout) {
-      setCachedCutoutsMap((prev) => new Map(prev).set(selectedObs.obs_id, cutout));
-    }
-  }, [selectedObs, cutout]);
-
-  const cachedImages = useMemo(() => {
-    const map = new Map<string, string>();
-    cachedCutoutsMap.forEach((v, k) => {
-      if (v.dataUrl) map.set(k, v.dataUrl);
-    });
-    return map;
-  }, [cachedCutoutsMap]);
-
-  const cachedFluxes = useMemo(() => {
-    const map = new Map<string, { flux: number; unit: string; snr: number | null; mjd: number | null }>();
-    cachedCutoutsMap.forEach((v, k) => {
-      map.set(k, { flux: v.stats.median, unit: v.stats.unit, snr: null, mjd: null });
-    });
-    return map;
-  }, [cachedCutoutsMap]);
-
-
-
   const cutoutViewportRef = useRef<HTMLDivElement | null>(null);
 
   const observations = useMemo(
@@ -316,6 +289,98 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
 
   const targetRa = lastCoords?.ra;
   const targetDec = lastCoords?.dec;
+
+  useEffect(() => {
+    if (selectedObs && cutout) {
+      const compKey = getEpochKey(selectedObs);
+      setCachedCutoutsMap((prev) => {
+        const next = new Map(prev);
+        next.set(compKey, cutout);
+        next.set(selectedObs.obs_id, cutout);
+        return next;
+      });
+    }
+  }, [selectedObs, cutout]);
+
+  const cachedImages = useMemo(() => {
+    const map = new Map<string, string>();
+    cachedCutoutsMap.forEach((v, k) => {
+      if (v.dataUrl) map.set(k, v.dataUrl);
+    });
+    return map;
+  }, [cachedCutoutsMap]);
+
+  const obsMjdByKey = useMemo(() => {
+    const m = new Map<string, number | null>();
+    for (const o of observations) {
+      m.set(getEpochKey(o), o.t_min ?? null);
+      if (!m.has(o.obs_id)) m.set(o.obs_id, o.t_min ?? null);
+    }
+    return m;
+  }, [observations]);
+
+  const cachedFluxes = useMemo(() => {
+    const map = new Map<string, { flux: number; unit: string; snr: number | null; mjd: number | null }>();
+    cachedCutoutsMap.forEach((v, k) => {
+      let fluxVal = v.stats.median;
+      let snrVal: number | null = null;
+      if (
+        targetRa !== undefined &&
+        targetDec !== undefined &&
+        v.wcs &&
+        v.fluxData &&
+        v.width > 0 &&
+        v.height > 0
+      ) {
+        const pix = worldToPixel(targetRa, targetDec, v.wcs);
+        if (pix) {
+          const cCol = Math.round(pix.px - 1);
+          const cRow = Math.round(pix.py - 1);
+          if (cCol >= 0 && cCol < v.width && cRow >= 0 && cRow < v.height) {
+            let fSum = 0;
+            let vSum = 0;
+            let count = 0;
+            let vCount = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+              const r = cRow + dr;
+              if (r < 0 || r >= v.height) continue;
+              for (let dc = -1; dc <= 1; dc++) {
+                const c = cCol + dc;
+                if (c < 0 || c >= v.width) continue;
+                const idx = r * v.width + c;
+                const f = v.fluxData[idx];
+                if (Number.isFinite(f)) {
+                  fSum += f;
+                  count++;
+                  const vr = v.varianceData ? v.varianceData[idx] : Number.NaN;
+                  if (Number.isFinite(vr) && vr > 0) {
+                    vSum += vr;
+                    vCount++;
+                  }
+                }
+              }
+            }
+            if (count > 0) {
+              fluxVal = Number((fSum / count).toFixed(4));
+              if (vCount > 0) {
+                const sigma = Math.sqrt(vSum) / vCount;
+                if (sigma > 0) {
+                  snrVal = Number((Math.abs(fluxVal) / sigma).toFixed(1));
+                }
+              }
+            }
+          }
+        }
+      }
+      map.set(k, {
+        flux: fluxVal,
+        unit: v.stats.unit,
+        snr: snrVal,
+        mjd: obsMjdByKey.get(k) ?? null,
+      });
+    });
+    return map;
+  }, [cachedCutoutsMap, targetRa, targetDec, obsMjdByKey]);
 
   const scanAbortRef = useRef<AbortController | null>(null);
 
@@ -345,7 +410,8 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     // Filtrar primero observaciones pendientes; las ya cacheadas con fluxData suman de inmediato
     const pending: SpherexObservation[] = [];
     for (const obs of observations) {
-      const existing = cachedCutoutsMap.get(obs.obs_id);
+      const compKey = getEpochKey(obs);
+      const existing = cachedCutoutsMap.get(compKey) ?? cachedCutoutsMap.get(obs.obs_id);
       if (existing && existing.fluxData) {
         done++;
       } else {
@@ -363,6 +429,7 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     const runWorker = async () => {
       while (nextIdx < pending.length && !controller.signal.aborted) {
         const obs = pending[nextIdx++];
+        const compKey = getEpochKey(obs);
         try {
           const rendered = await getRenderedCutout({
             accessUrl: obs.access_url,
@@ -376,7 +443,17 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
             skipRender: true,
             signal: controller.signal,
           });
-          setCachedCutoutsMap((prev) => new Map(prev).set(obs.obs_id, rendered));
+          setCachedCutoutsMap((prev) => {
+            const next = new Map(prev);
+            const prevEntry = next.get(compKey) ?? next.get(obs.obs_id);
+            const merged =
+              prevEntry?.dataUrl && !rendered.dataUrl
+                ? { ...rendered, dataUrl: prevEntry.dataUrl, imageData: prevEntry.imageData }
+                : rendered;
+            next.set(compKey, merged);
+            next.set(obs.obs_id, merged);
+            return next;
+          });
         } catch (err) {
           if (err instanceof DOMException && err.name === "AbortError") {
             break;
@@ -514,6 +591,12 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
             ...prev,
             [frameKey]: { status: "ready", cutout: rendered },
           }));
+          setCachedCutoutsMap((prev) => {
+            const next = new Map(prev);
+            next.set(getEpochKey(obs), rendered);
+            next.set(obs.obs_id, rendered);
+            return next;
+          });
         })
         .catch((err) => {
           if (controller.signal.aborted) return;
@@ -572,12 +655,10 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
   }, [effectivePlaybackFrames, selectedObs, activeCollection, onSelectVersionObservation]);
 
   const activeEpochIdx = useMemo(() => {
-    if (epochFrames.length === 0) return fallbackEpochIdx;
-    if (effectivePlaybackFrames.length === 0) return 0;
-    if (!selectedObs) return 0;
+    if (epochFrames.length === 0 || effectivePlaybackFrames.length === 0 || !selectedObs) return 0;
     const idx = effectivePlaybackFrames.findIndex((o) => isSameObs(o, selectedObs));
     return idx >= 0 ? idx : 0;
-  }, [epochFrames.length, effectivePlaybackFrames, selectedObs, fallbackEpochIdx]);
+  }, [epochFrames.length, effectivePlaybackFrames, selectedObs]);
 
   const canAutoplayCutout =
     secondMapOpen &&
@@ -645,8 +726,6 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
       if (readyPlaybackFrames.length > 1) {
         const nextIdx = (activeEpochIdx + 1) % readyPlaybackFrames.length;
         onSelectVersionObservation(activeCollection, readyPlaybackFrames[nextIdx]);
-      } else if (epochFrames.length === 0) {
-        setFallbackEpochIdx((prev) => (prev + 1) % FALLBACK_EPOCHS.length);
       }
     }, intervalMs);
 
@@ -985,10 +1064,11 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
         const leftMid = toSky(xMin, (yMin + yMax) / 2);
         const rightMid = toSky(xMax, (yMin + yMax) / 2);
         const cosDec = Math.max(0.1, Math.cos((center.dec * Math.PI) / 180));
+        const shortestDeltaRa = (ra2: number, ra1: number) => ((ra2 - ra1 + 540) % 360) - 180;
         const widthArcsec =
-          Math.hypot((rightMid.ra - leftMid.ra) * cosDec, rightMid.dec - leftMid.dec) * 3600;
+          Math.hypot(shortestDeltaRa(rightMid.ra, leftMid.ra) * cosDec, rightMid.dec - leftMid.dec) * 3600;
         const heightArcsec =
-          Math.hypot((botMid.ra - topMid.ra) * cosDec, botMid.dec - topMid.dec) * 3600;
+          Math.hypot(shortestDeltaRa(botMid.ra, topMid.ra) * cosDec, botMid.dec - topMid.dec) * 3600;
 
         const baseRoi: SkyRoiSelection = {
           corners,
@@ -1075,8 +1155,8 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     if (selectedObs?.epoch_date) {
       return selectedObs.epoch_date;
     }
-    return FALLBACK_EPOCHS[fallbackEpochIdx] ?? t.chrono.noDateLabel;
-  }, [effectivePlaybackFrames, activeEpochIdx, epochFrames.length, selectedObs?.epoch_date, fallbackEpochIdx, t.chrono.noDateLabel]);
+    return t.chrono.noDateLabel;
+  }, [effectivePlaybackFrames, activeEpochIdx, epochFrames.length, selectedObs?.epoch_date, t.chrono.noDateLabel]);
 
   const epochReadoutText = useMemo(() => {
     if (effectivePlaybackFrames.length > 0) {
@@ -1087,16 +1167,12 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     if (epochFrames.length > 0) {
       return `0/${epochFrames.length}`;
     }
-    return FALLBACK_EPOCHS[fallbackEpochIdx] ?? FALLBACK_EPOCHS[0];
-  }, [effectivePlaybackFrames, epochFrames.length, activeEpochIdx, fallbackEpochIdx]);
+    return t.chrono.noDateLabel;
+  }, [effectivePlaybackFrames, epochFrames.length, activeEpochIdx, t.chrono.noDateLabel]);
 
-  const maxEpochSlider = Math.max(
-    1,
-    (epochFrames.length > 0 ? Math.max(1, effectivePlaybackFrames.length) : FALLBACK_EPOCHS.length) - 1
-  );
+  const maxEpochSlider = Math.max(1, effectivePlaybackFrames.length - 1);
 
-  const totalFramesCount =
-    epochFrames.length > 0 ? effectivePlaybackFrames.length : FALLBACK_EPOCHS.length;
+  const totalFramesCount = effectivePlaybackFrames.length;
   const canStepFrames = !isPlaying && totalFramesCount > 1;
 
   const handleStepFrame = (delta: -1 | 1) => {
@@ -1107,8 +1183,6 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     const nextIdx = (activeEpochIdx + delta + totalFramesCount) % totalFramesCount;
     if (effectivePlaybackFrames.length > 0 && effectivePlaybackFrames[nextIdx]) {
       onSelectVersionObservation(activeCollection, effectivePlaybackFrames[nextIdx]);
-    } else if (epochFrames.length === 0) {
-      setFallbackEpochIdx(nextIdx);
     }
   };
 
@@ -1182,8 +1256,6 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
             }
             if (effectivePlaybackFrames.length > 0 && effectivePlaybackFrames[idx]) {
               onSelectVersionObservation(activeCollection, effectivePlaybackFrames[idx]);
-            } else if (epochFrames.length === 0) {
-              setFallbackEpochIdx(idx);
             }
           }}
           className="apple-slider w-full"
@@ -1482,7 +1554,7 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                 </button>
               </div>
 
-              {/* Switch between Cutout+WCS and 6-Bands Grid inside Map 2 */}
+              {/* Switch between Cutout+WCS, 6-Bands Grid, SED, Blink, and Detector Guide inside Map 2 */}
               <div className="glass-panel rounded-full p-1 flex items-center gap-1 text-[11px]">
                 <button
                   type="button"
@@ -1507,6 +1579,42 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                 >
                   <Grid className="w-3 h-3" />
                   <span className="hidden sm:inline">D1–D6</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSecondMapTab("sed")}
+                  className={`btn-press px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1 transition-colors ${
+                    secondMapTab === "sed"
+                      ? "bg-[#00D2FF] text-slate-950 font-semibold"
+                      : "text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <TrendingUp className="w-3 h-3" />
+                  <span className="hidden sm:inline">SED</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSecondMapTab("blink")}
+                  className={`btn-press px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1 transition-colors ${
+                    secondMapTab === "blink"
+                      ? "bg-[#00D2FF] text-slate-950 font-semibold"
+                      : "text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <Play className="w-3 h-3" />
+                  <span className="hidden sm:inline">Blink</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSecondMapTab("guide")}
+                  className={`btn-press px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1 transition-colors ${
+                    secondMapTab === "guide"
+                      ? "bg-[#00D2FF] text-slate-950 font-semibold"
+                      : "text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <Info className="w-3 h-3" />
+                  <span className="hidden sm:inline">{isEn ? "Guide" : "Guía"}</span>
                 </button>
               </div>
 
@@ -2229,7 +2337,16 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
               <div className="flex-1 w-full h-full pt-16 pb-4 px-4 overflow-y-auto">
                 <DetectorGuide
                   currentBand="all"
-                  onSelectBand={() => {}}
+                  onSelectBand={(detId) => {
+                    if (detId === "all") return;
+                    const match = observations.find((o) =>
+                      o.bandpass.toUpperCase().includes(detId.toUpperCase())
+                    );
+                    if (match) {
+                      onSelectVersionObservation(activeCollection, match);
+                      setSecondMapTab("cutout");
+                    }
+                  }}
                   selectedObsBandpass={selectedObs?.bandpass}
                 />
               </div>

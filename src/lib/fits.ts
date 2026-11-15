@@ -137,6 +137,9 @@ function readImagePixels(buffer: ArrayBuffer, hdu: FitsHdu): Float64Array {
       case -64:
         val = view.getFloat64(start + i * 8, false);
         break;
+      case 64:
+        val = Number(view.getBigInt64(start + i * 8, false));
+        break;
       case 32:
         val = view.getInt32(start + i * 4, false);
         break;
@@ -399,6 +402,35 @@ export function computeFitsPixels(
     const rawVar = readImagePixels(rawBuffer, varianceHdu);
     varianceData = new Float32Array(rawVar);
   }
+
+  // Enmascarar píxeles corruptos (rayos cósmicos, saturación, píxeles muertos/NoData) usando HDU[2] FLAGS
+  const flagsHdu = hdus.find(
+    (h) => (h.name === "FLAGS" || h.name === "MASK") && h.naxis === 2
+  );
+  if (flagsHdu && flagsHdu.naxis1 === width && flagsHdu.naxis2 === height) {
+    const rawFlags = readImagePixels(rawBuffer, flagsHdu);
+    const SEVERE_FLAG_MASK = 0x7ffffffe;
+    let validAfterMask = 0;
+    let totalFiniteBefore = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (!Number.isFinite(data[i])) continue;
+      totalFiniteBefore++;
+      const flagVal = Number.isFinite(rawFlags[i]) ? Math.trunc(rawFlags[i]) : 0;
+      if ((flagVal & SEVERE_FLAG_MASK) === 0) {
+        validAfterMask++;
+      }
+    }
+    if (totalFiniteBefore > 0 && validAfterMask >= Math.max(4, totalFiniteBefore * 0.2)) {
+      for (let i = 0; i < data.length; i++) {
+        const flagVal = Number.isFinite(rawFlags[i]) ? Math.trunc(rawFlags[i]) : 0;
+        if ((flagVal & SEVERE_FLAG_MASK) !== 0) {
+          data[i] = Number.NaN;
+          if (varianceData) varianceData[i] = Number.NaN;
+        }
+      }
+    }
+  }
+
   const fluxData = new Float32Array(data);
   const waveGrid = extractWaveCalibration(rawBuffer, imageHdu.header, hdus);
 

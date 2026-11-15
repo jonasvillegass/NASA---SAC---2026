@@ -281,7 +281,9 @@ export function extractRoiSpectrumFromCutouts(
   const points: RoiSpectrumPoint[] = [];
 
   for (const obs of observations) {
-    const cutout = cachedCutoutsMap.get(obs.obs_id);
+    const cutout =
+      cachedCutoutsMap.get(`${obs.obs_id}|${obs.bandpass}`) ??
+      cachedCutoutsMap.get(obs.obs_id);
     if (!cutout || !cutout.fluxData || !cutout.wcs) continue;
 
     const polyPix: Array<{ x: number; y: number }> = [];

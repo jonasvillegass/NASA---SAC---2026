@@ -46,8 +46,10 @@ export const BlinkComparator: React.FC<BlinkComparatorProps> = ({
     const obsB = observations[epochBIdx];
     if (!obsA || !obsB) return;
 
-    const b64A = cachedImages.get(obsA.obs_id);
-    const b64B = cachedImages.get(obsB.obs_id);
+    const b64A =
+      cachedImages.get(`${obsA.obs_id}|${obsA.bandpass}`) ?? cachedImages.get(obsA.obs_id);
+    const b64B =
+      cachedImages.get(`${obsB.obs_id}|${obsB.bandpass}`) ?? cachedImages.get(obsB.obs_id);
     if (!b64A || !b64B) return;
 
     const imgA = new Image();
@@ -125,9 +127,17 @@ export const BlinkComparator: React.FC<BlinkComparatorProps> = ({
   }
 
   const currentObs = observations[selectedIdx];
+  const obsA = observations[epochAIdx];
+  const obsB = observations[epochBIdx];
   const hasLoadedPair =
-    cachedImages.has(observations[epochAIdx]?.obs_id) &&
-    cachedImages.has(observations[epochBIdx]?.obs_id);
+    Boolean(
+      obsA &&
+        (cachedImages.has(`${obsA.obs_id}|${obsA.bandpass}`) || cachedImages.has(obsA.obs_id))
+    ) &&
+    Boolean(
+      obsB &&
+        (cachedImages.has(`${obsB.obs_id}|${obsB.bandpass}`) || cachedImages.has(obsB.obs_id))
+    );
 
   return (
     <div className="blink-comparator-card">

@@ -58,7 +58,8 @@ export const SpectralProfile: React.FC<SpectralProfileProps> = ({
           : null;
       if (wave === null) continue;
 
-      const cached = cachedFluxes.get(obs.obs_id);
+      const compositeKey = `${obs.obs_id}|${obs.bandpass}`;
+      const cached = cachedFluxes.get(compositeKey) ?? cachedFluxes.get(obs.obs_id);
       const detId = parseDetectorId(obs.bandpass) || "D1";
 
       list.push({
@@ -69,7 +70,7 @@ export const SpectralProfile: React.FC<SpectralProfileProps> = ({
         unit: cached ? cached.unit : "MJy/sr",
         snr: cached ? cached.snr : null,
         detectorId: detId,
-        mjd: cached ? cached.mjd : null,
+        mjd: cached?.mjd ?? obs.t_min ?? null,
       });
     }
 
@@ -352,7 +353,7 @@ export const SpectralProfile: React.FC<SpectralProfileProps> = ({
 
             return (
               <g
-                key={p.obs_id}
+                key={`${p.obs_id}|${p.bandpass}`}
                 className="spectral-dot-group"
                 style={{ cursor: "pointer" }}
                 onClick={() => onSelectObsId(p.obs_id)}
