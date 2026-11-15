@@ -21,7 +21,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch {
       // Fallback si localStorage no está disponible
     }
-    return "es";
+    return "en";
   });
 
   const setLanguage = (lang: Language) => {

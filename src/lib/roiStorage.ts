@@ -1,3 +1,4 @@
+import { analyzeRoiChemistry } from "./spectralAnalysis";
 import type { SavedRoiReading } from "./types";
 
 const STORAGE_KEY = "spherex_saved_roi_readings_v1";
@@ -9,7 +10,23 @@ export function loadSavedRoiReadings(): SavedRoiReading[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as SavedRoiReading[]) : [];
+    if (!Array.isArray(parsed)) return [];
+
+    return (parsed as SavedRoiReading[]).map((r) => {
+      if (
+        r?.analysis &&
+        (!r.analysis.celestialClassification || !r.analysis.habitability)
+      ) {
+        return {
+          ...r,
+          analysis: analyzeRoiChemistry(
+            r.analysis.spectrumPoints ?? [],
+            r.analysis.totalObservationsAnalyzed ?? 0
+          ),
+        };
+      }
+      return r;
+    });
   } catch {
     return [];
   }

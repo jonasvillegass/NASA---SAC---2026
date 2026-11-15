@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, PanelLeftClose, PanelLeftOpen, Search, Volume2, VolumeX, X } from "lucide-react";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { LanguageSelector } from "./components/LanguageSelector";
+import { NewSearchModal } from "./components/NewSearchModal";
 import { ObservationsPanel } from "./components/ObservationsPanel";
+import { ShareButton } from "./components/ShareButton";
 import {
   CosmicBackground,
   SpaceGate,
@@ -140,13 +142,16 @@ export default function App() {
   // Dual-map split state: false = 1 map (100% width), true = 2 maps dividing the original map space in 2
   const [secondMapOpen, setSecondMapOpen] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [newSearchOpen, setNewSearchOpen] = useState<boolean>(false);
   const [showExposuresModal, setShowExposuresModal] = useState<boolean>(false);
+  const [showGalleryModal, setShowGalleryModal] = useState<boolean>(false);
 
   // Tuned HiPS spectral channel
   const [externalChannelIdx, setExternalChannelIdx] = useState<number | null>(null);
 
   const cosmicBgRef = useRef<CosmicBackgroundHandle | null>(null);
   const [cursorSky, setCursorSky] = useState<{ ra: number; dec: number } | null>(null);
+  const [cursorAudioEnabled, setCursorAudioEnabled] = useState(true);
   const [warping, setWarping] = useState(false);
 
   const [raInput, setRaInput] = useState("08h55m10.831s");
@@ -1075,6 +1080,15 @@ export default function App() {
     });
   }, []);
 
+  const handleRenameMap2Tab = useCallback(
+    (tabId: string, newLabel: string) => {
+      const trimmed = newLabel.trim();
+      if (!trimmed) return;
+      updateTab(tabId, (tab) => ({ ...tab, label: trimmed }));
+    },
+    [updateTab]
+  );
+
   const handleToggleSecondMap = useCallback((open: boolean) => {
     setSecondMapOpen(open);
     if (!open) {
@@ -1101,6 +1115,7 @@ export default function App() {
       <CosmicBackground
         ref={cosmicBgRef}
         mode={currentScreen === "explorer" ? "explorer" : "gate"}
+        cursorAudio={currentScreen === "entry" && cursorAudioEnabled}
         onCursorSky={setCursorSky}
       />
 
@@ -1140,11 +1155,57 @@ export default function App() {
             )}
             <span>{t.chrono.panelLabel}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setNewSearchOpen(true)}
+            aria-label={t.chrono.newSearchButton}
+            title={t.chrono.newSearchButton}
+            className="btn-press glass-panel rounded-full px-3.5 py-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-200 hover:text-white hover:border-[#00D2FF]/45 cursor-pointer transition-colors"
+          >
+            <Search className="w-3.5 h-3.5 text-[#00D2FF]" />
+            <span>{t.chrono.newSearchButton}</span>
+          </button>
+
+          <ShareButton
+            variant="pill"
+            ra={raInput}
+            dec={decInput}
+            collection={collectionMode}
+            band={band}
+            size={size}
+            stretch={stretch}
+            colormap={colormap}
+            subtractZodi={subtractZodi}
+          />
         </div>
       )}
 
-      {/* Persistent Top-Right Language Pill */}
-      <div className="fixed top-6 right-7 z-30">
+      {/* Persistent Top-Right Language & Entry Audio Pills */}
+      <div className="fixed top-6 right-7 z-30 flex items-center gap-2">
+        {currentScreen === "entry" && (
+          <button
+            type="button"
+            onClick={() => setCursorAudioEnabled((prev) => !prev)}
+            aria-pressed={cursorAudioEnabled}
+            aria-label={t.chrono.cursorAudioAria}
+            title={cursorAudioEnabled ? t.chrono.cursorAudioOn : t.chrono.cursorAudioOff}
+            className={`btn-press glass-panel rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors ${
+              cursorAudioEnabled
+                ? "text-[#00D2FF] border-[#00D2FF]/45 hover:border-[#00D2FF]/75"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            {cursorAudioEnabled ? (
+              <Volume2 className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 shrink-0" />
+            )}
+            <span className="hidden sm:inline">
+              {cursorAudioEnabled ? t.chrono.cursorAudioOn : t.chrono.cursorAudioOff}
+            </span>
+          </button>
+        )}
         <LanguageSelector />
       </div>
 
@@ -1185,7 +1246,7 @@ export default function App() {
           <div className="relative mb-5 flex items-center justify-center">
             <div className="rocket-animate text-[#00D2FF] drop-shadow-[0_0_20px_rgba(0,210,255,0.6)]">
               <svg
-                className="w-12 h-12"
+                className="w-12 h-12 overflow-visible"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -1276,6 +1337,8 @@ export default function App() {
               onSelectPreset={handleSelectPreset}
               onSearchCelestialName={handleSearchCelestialName}
               onOpenExposuresDrawer={() => setShowExposuresModal(true)}
+              hasVersions={Boolean(versions)}
+              onOpenGalleryModal={() => setShowGalleryModal(true)}
             />
           </div>
         </div>
@@ -1285,6 +1348,7 @@ export default function App() {
           activeMap2TabId={activeTab.id}
           onSelectMap2Tab={handleSelectMap2Tab}
           onCloseMap2Tab={handleCloseMap2Tab}
+          onRenameMap2Tab={handleRenameMap2Tab}
           selectedObs={selectedObs}
           cutout={cutout}
           cutoutLoading={cutoutLoading}
@@ -1305,6 +1369,8 @@ export default function App() {
           onChangeFov={handleChangeFov}
           onSelectVersionObservation={handleSelectVersionObservation}
           onQueryAtCoords={handleQueryAtCoords}
+          galleryOpen={showGalleryModal}
+          onCloseGallery={() => setShowGalleryModal(false)}
         />
       </section>
 
@@ -1393,6 +1459,22 @@ export default function App() {
           </div>
         </div>
       )}
+      <NewSearchModal
+        open={newSearchOpen}
+        onClose={() => setNewSearchOpen(false)}
+        initialRa={raInput}
+        initialDec={decInput}
+        loading={loading}
+        onSubmitSearch={({ ra, dec, preset }) => {
+          if (preset) {
+            void handleSelectPreset(preset);
+            return;
+          }
+          setRaInput(ra);
+          setDecInput(dec);
+          handleSubmitCoords(ra, dec);
+        }}
+      />
     </div>
   );
 }

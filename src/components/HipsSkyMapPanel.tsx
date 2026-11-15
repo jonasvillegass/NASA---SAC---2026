@@ -65,6 +65,7 @@ interface HipsSkyMapPanelProps {
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
 const AITOFF_THRESHOLD_FOV = 90;
+const MIN_FOV_DEG = 0.25;
 const MAX_FOV_DEG = 360;
 
 function wrapRaDeltaDeg(dRa: number): number {
@@ -464,18 +465,39 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
   // Al abrir el Mapa 2, encuadrar el Mapa 1 solo en las secciones FITS del punto mostrado; al cerrar, restaurar FOV
   const prevFovRef = useRef<number>(35);
   const wasSecondMapOpenRef = useRef<boolean>(false);
+  const prevAutoFrameTargetRef = useRef<{ ra?: number; dec?: number; obsRef: SpherexObservation[] | null }>({
+    ra: undefined,
+    dec: undefined,
+    obsRef: null,
+  });
   useEffect(() => {
     if (secondMapOpen) {
-      if (!wasSecondMapOpenRef.current) {
+      const justOpened = !wasSecondMapOpenRef.current;
+      if (justOpened) {
         prevFovRef.current = fovDeg;
         wasSecondMapOpenRef.current = true;
         setShowFootprints(true);
       }
-      const center = targetCoords ?? markedPoint ?? viewCenter;
-      setViewCenter({ ra: center.ra, dec: center.dec });
-      setFovDeg(computeFitsBoundsFov(center, observations, targetCoords?.size));
+      const nextObsRef = observations.length > 0 ? observations : null;
+      const targetChanged =
+        prevAutoFrameTargetRef.current.ra !== targetCoords?.ra ||
+        prevAutoFrameTargetRef.current.dec !== targetCoords?.dec;
+      const obsLoadedChanged =
+        nextObsRef !== null && prevAutoFrameTargetRef.current.obsRef !== nextObsRef;
+
+      if (justOpened || targetChanged || obsLoadedChanged) {
+        prevAutoFrameTargetRef.current = {
+          ra: targetCoords?.ra,
+          dec: targetCoords?.dec,
+          obsRef: nextObsRef,
+        };
+        const center = targetCoords ?? markedPoint ?? viewCenter;
+        setViewCenter({ ra: center.ra, dec: center.dec });
+        setFovDeg(computeFitsBoundsFov(center, observations, targetCoords?.size));
+      }
     } else if (wasSecondMapOpenRef.current) {
       wasSecondMapOpenRef.current = false;
+      prevAutoFrameTargetRef.current = { ra: undefined, dec: undefined, obsRef: null };
       setFovDeg(prevFovRef.current);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,7 +522,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
     const cy = height / 2;
 
     const isAitoff = fovDeg >= AITOFF_THRESHOLD_FOV;
-    const fovRad = Math.max(1.5, Math.min(160, fovDeg)) * DEG2RAD;
+    const fovRad = Math.max(MIN_FOV_DEG, Math.min(160, fovDeg)) * DEG2RAD;
     const scalePxPerRad = Math.min(width, height) / (2 * Math.tan(fovRad / 4) * 2);
     const aitoffScale = getAitoffScale(width, height, fovDeg);
 
@@ -1084,7 +1106,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
     const canvasY = (e.clientY - rect.top) * scaleY;
 
     const isAitoff = fovDeg >= AITOFF_THRESHOLD_FOV;
-    const fovRad = Math.max(1.5, Math.min(160, fovDeg)) * DEG2RAD;
+    const fovRad = Math.max(MIN_FOV_DEG, Math.min(160, fovDeg)) * DEG2RAD;
     const scalePxPerRad = Math.min(canvas.width, canvas.height) / (2 * Math.tan(fovRad / 4) * 2);
     const aitoffScale = getAitoffScale(canvas.width, canvas.height, fovDeg);
 
@@ -1149,7 +1171,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
       e.stopPropagation();
       if (e.deltaY === 0) return;
       const factor = e.deltaY > 0 ? 1.18 : 1 / 1.18;
-      setFovDeg((prev) => Number(Math.max(1.5, Math.min(MAX_FOV_DEG, prev * factor)).toFixed(2)));
+      setFovDeg((prev) => Number(Math.max(MIN_FOV_DEG, Math.min(MAX_FOV_DEG, prev * factor)).toFixed(2)));
     };
 
     el.addEventListener("wheel", onNativeWheel, { passive: false });
@@ -1167,7 +1189,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
       const canvasX = (e.clientX - rect.left) * (canvas.width / rect.width);
       const canvasY = (e.clientY - rect.top) * (canvas.height / rect.height);
       const isAitoff = fovDeg >= AITOFF_THRESHOLD_FOV;
-      const fovRad = Math.max(1.5, Math.min(160, fovDeg)) * DEG2RAD;
+      const fovRad = Math.max(MIN_FOV_DEG, Math.min(160, fovDeg)) * DEG2RAD;
       const scalePxPerRad = Math.min(canvas.width, canvas.height) / (2 * Math.tan(fovRad / 4) * 2);
       const aitoffScale = getAitoffScale(canvas.width, canvas.height, fovDeg);
       picked =
@@ -1250,18 +1272,6 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
                   <Maximize2 className="w-3.5 h-3.5" />
                 )}
               </button>
-
-              {onToggleSecondMap && (
-                <button
-                  type="button"
-                  onClick={() => onToggleSecondMap(false)}
-                  className="btn-press glass-panel rounded-full p-1.5 text-xs font-medium border-[#00D2FF]/70 text-[#00D2FF] bg-[#00D2FF]/15 hover:text-white cursor-pointer transition-colors"
-                  title={t.chrono.closeSecondMapButton}
-                  aria-label={t.chrono.closeSecondMapButton}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
           </div>
 
@@ -1305,7 +1315,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
             <div className="glass-panel rounded-full px-2 py-1 flex items-center gap-0.5 text-xs text-slate-300 pointer-events-auto">
               <button
                 type="button"
-                onClick={() => setFovDeg((f) => Math.max(1.5, Number((f * 0.7).toFixed(2))))}
+                onClick={() => setFovDeg((f) => Math.max(MIN_FOV_DEG, Number((f * 0.7).toFixed(2))))}
                 className="p-1 hover:text-white cursor-pointer"
                 title={t.viewer.zoomInTitle}
               >
@@ -1471,7 +1481,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
               <div className="glass-panel rounded-full px-2.5 py-1 flex items-center gap-1 text-xs text-slate-300">
                 <button
                   type="button"
-                  onClick={() => setFovDeg((f) => Math.max(1.5, Number((f * 0.7).toFixed(2))))}
+                  onClick={() => setFovDeg((f) => Math.max(MIN_FOV_DEG, Number((f * 0.7).toFixed(2))))}
                   className="p-1 hover:text-white cursor-pointer"
                   title={t.viewer.zoomInTitle}
                 >

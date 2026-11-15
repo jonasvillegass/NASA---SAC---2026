@@ -11,6 +11,7 @@ interface ShareButtonProps {
   stretch: string;
   colormap: string;
   subtractZodi: boolean;
+  variant?: "panel" | "pill";
 }
 
 export const ShareButton: React.FC<ShareButtonProps> = ({
@@ -22,6 +23,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   stretch,
   colormap,
   subtractZodi,
+  variant = "panel",
 }) => {
   const { language } = useLanguage();
   const [copied, setCopied] = useState(false);
@@ -54,6 +56,40 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   };
 
   const isEn = language === "en";
+  const label = isEn ? "Share observation" : "Compartir observación";
+  const copiedLabel = isEn ? "Link copied!" : "¡Enlace copiado!";
+
+  if (variant === "pill") {
+    return (
+      <button
+        type="button"
+        onClick={handleShare}
+        aria-label={label}
+        title={
+          isEn
+            ? "Copy permalink with coordinates and display settings"
+            : "Copiar enlace permanente con estas coordenadas y ajustes"
+        }
+        className={`btn-press glass-panel rounded-full px-3.5 py-1.5 flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors ${
+          copied
+            ? "border-emerald-500/50 text-emerald-300 bg-emerald-500/10"
+            : "text-slate-200 hover:text-white hover:border-[#00D2FF]/45"
+        }`}
+      >
+        {copied ? (
+          <>
+            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>{copiedLabel}</span>
+          </>
+        ) : (
+          <>
+            <Share2 className="w-3.5 h-3.5 text-[#00D2FF] shrink-0" />
+            <span>{label}</span>
+          </>
+        )}
+      </button>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -74,12 +110,12 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
         {copied ? (
           <>
             <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{isEn ? "Permalink Copied to Clipboard!" : "¡Enlace Permanente Copiado!"}</span>
+            <span>{copiedLabel}</span>
           </>
         ) : (
           <>
             <Share2 className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{isEn ? "Share Observation Link" : "Compartir Enlace de Observación"}</span>
+            <span>{label}</span>
           </>
         )}
       </button>

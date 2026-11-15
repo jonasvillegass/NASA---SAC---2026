@@ -214,6 +214,60 @@ export interface ChemicalSpeciesResult {
   pointsRightContinuum: number;
 }
 
+export type CelestialBodyArchetypeId =
+  | "icy_substellar_world"
+  | "protoplanetary_disk_yso"
+  | "molecular_cloud_core"
+  | "hii_nebula_ism"
+  | "cool_star_photosphere"
+  | "galaxy_stellar_system";
+
+export interface CelestialBodyCandidate {
+  id: CelestialBodyArchetypeId;
+  nameEs: string;
+  nameEn: string;
+  probabilityPct: number;
+  matchingFeaturesEs: string[];
+  matchingFeaturesEn: string[];
+}
+
+export interface CelestialBodyClassification {
+  topCandidate: CelestialBodyCandidate | null;
+  candidates: CelestialBodyCandidate[];
+  confidence: "high" | "moderate" | "low" | "insufficient";
+  estimatedTeffK: number | null;
+  peakWaveUm: number | null;
+  spectralSlope: number | null;
+  evaluatedBandsCount: number;
+}
+
+export type HabitabilityFactorId =
+  | "water"
+  | "carbon_organics"
+  | "chnops_nitrogen"
+  | "thermal_regime"
+  | "radiation_equilib";
+
+export interface HabitabilityFactor {
+  id: HabitabilityFactorId;
+  labelEs: string;
+  labelEn: string;
+  weightPct: number;
+  scorePct: number;
+  status: "favorable" | "partial" | "unfavorable" | "no_coverage";
+  detailEs: string;
+  detailEn: string;
+}
+
+export interface HabitabilityAssessment {
+  probabilityPct: number | null;
+  tier: "high" | "moderate" | "low" | "insufficient";
+  chnopsElements: Array<"C" | "H" | "N" | "O">;
+  factors: HabitabilityFactor[];
+  summaryEs: string;
+  summaryEn: string;
+}
+
 export interface RoiChemicalAnalysisResult {
   spectrumPoints: RoiSpectrumPoint[];
   coveredChannelsCount: number;
@@ -222,6 +276,8 @@ export interface RoiChemicalAnalysisResult {
   detectedCount: number;
   marginalCount: number;
   hasMolarProportions: boolean;
+  celestialClassification: CelestialBodyClassification;
+  habitability: HabitabilityAssessment;
 }
 
 export interface SavedRoiReading {

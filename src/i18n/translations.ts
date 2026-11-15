@@ -86,6 +86,8 @@ export interface Translations {
     decAxisLabel: string;
     emptyTitle: string;
     emptySubtitle: string;
+    queryingApiTitle: string;
+    queryingApiSubtitle: string;
     detectorBand: string;
     wavelength: string;
     infrared: string;
@@ -221,6 +223,7 @@ export interface Translations {
     loadingLabel: string;
     backButton: string;
     panelLabel: string;
+    newSearchButton: string;
     togglePanelOpen: string;
     togglePanelClose: string;
     searchByCoords: string;
@@ -244,6 +247,8 @@ export interface Translations {
     playPauseAria: string;
     prevFrameAria: string;
     nextFrameAria: string;
+    loopLabel: string;
+    loopAria: string;
     enterFullscreen: string;
     exitFullscreen: string;
     splitSecondMapButton: string;
@@ -259,6 +264,9 @@ export interface Translations {
     preloadingFrames: (loaded: number, total: number) => string;
     selectDatesTooltip: string;
     noDateLabel: string;
+    cursorAudioOn: string;
+    cursorAudioOff: string;
+    cursorAudioAria: string;
     molecules: {
       h2o: string;
       co2: string;
@@ -373,6 +381,8 @@ export const translations: Record<Language, Translations> = {
       emptyTitle: "Aún no se ha realizado ninguna consulta",
       emptySubtitle:
         "Selecciona un cuerpo celeste o escribe coordenadas para visualizar sus imágenes detalladas",
+      queryingApiTitle: "Realizando consulta a la API de NASA/IRSA...",
+      queryingApiSubtitle: "Buscando observaciones espectrales disponibles para estas coordenadas",
       detectorBand: "Detector / Banda",
       wavelength: "Longitud de onda",
       infrared: "Infrarrojo",
@@ -410,8 +420,8 @@ export const translations: Record<Language, Translations> = {
         `Canal ${idx}/${total} · ${um} µm (${band})`,
       mocWideLabel: "Cobertura MOC Wide",
       mocDeepLabel: "Cobertura MOC Deep Field",
-      footprintsLabel: "Huellas FITS (s_region)",
-      gridLabel: "Malla RA/Dec",
+      footprintsLabel: "Ver/ocultar regiones detalladas",
+      gridLabel: "Mostrar/ocultar cuadrícula",
       allSkyButton: "Vista All-Sky (Aitoff)",
       centerOnTarget: "Centrar en objetivo",
       searchHereButton: "Consultar FITS en el centro del mapa",
@@ -525,9 +535,10 @@ export const translations: Record<Language, Translations> = {
       heroCta: "Comenzar →",
       loadingLabel: "Analizando el espacio...",
       backButton: "Volver",
-      panelLabel: "Controles",
-      togglePanelOpen: "Abrir panel de controles",
-      togglePanelClose: "Cerrar panel de controles",
+      panelLabel: "Ajustes",
+      newSearchButton: "Nueva búsqueda",
+      togglePanelOpen: "Abrir panel de ajustes",
+      togglePanelClose: "Cerrar panel de ajustes",
       searchByCoords: "Buscador por coordenadas",
       coordsInputPlaceholder: "RA, Dec (ej. 133.79, -7.24)",
       goButton: "Ir",
@@ -549,9 +560,11 @@ export const translations: Record<Language, Translations> = {
       playPauseAria: "Reproducir o Pausar",
       prevFrameAria: "Imagen anterior",
       nextFrameAria: "Imagen siguiente",
+      loopLabel: "Bucle",
+      loopAria: "Reproducir en bucle",
       enterFullscreen: "Ver en pantalla completa",
       exitFullscreen: "Salir de pantalla completa",
-      splitSecondMapButton: "Abrir 2º Mapa (Dividir Vista)",
+      splitSecondMapButton: "Abrir Mapa detallado",
       closeSecondMapButton: "Cerrar 2º Mapa",
       map1Title: "Mapa 1 · Cielo HiPS / MOC",
       map2Title: "Mapa 2 · Recorte FITS y Épocas",
@@ -564,6 +577,9 @@ export const translations: Record<Language, Translations> = {
       preloadingFrames: (loaded, total) => `Guardando imágenes (${loaded}/${total})...`,
       selectDatesTooltip: "Seleccionar fechas para el video",
       noDateLabel: "Sin fecha",
+      cursorAudioOn: "Audio activo",
+      cursorAudioOff: "Audio silenciado",
+      cursorAudioAria: "Activar o silenciar sonido espacial del cursor",
       molecules: {
         h2o: "Hielo de agua (H₂O)",
         co2: "Dióxido de carbono (CO₂)",
@@ -774,6 +790,8 @@ export const translations: Record<Language, Translations> = {
       emptyTitle: "No query performed yet",
       emptySubtitle:
         "Select a celestial body or enter coordinates to view its detailed images",
+      queryingApiTitle: "Querying NASA/IRSA API...",
+      queryingApiSubtitle: "Searching for available spectral observations at these coordinates",
       detectorBand: "Detector / Band",
       wavelength: "Wavelength",
       infrared: "Infrared",
@@ -811,8 +829,8 @@ export const translations: Record<Language, Translations> = {
         `Channel ${idx}/${total} · ${um} µm (${band})`,
       mocWideLabel: "Wide MOC Coverage",
       mocDeepLabel: "Deep Field MOC Coverage",
-      footprintsLabel: "FITS Footprints (s_region)",
-      gridLabel: "RA/Dec Grid",
+      footprintsLabel: "Show/hide detailed regions",
+      gridLabel: "Show/hide grid",
       allSkyButton: "All-Sky View (Aitoff)",
       centerOnTarget: "Center on target",
       searchHereButton: "Query FITS at map center",
@@ -926,9 +944,10 @@ export const translations: Record<Language, Translations> = {
       heroCta: "Start →",
       loadingLabel: "Analyzing space...",
       backButton: "Back",
-      panelLabel: "Controls",
-      togglePanelOpen: "Open controls panel",
-      togglePanelClose: "Close controls panel",
+      panelLabel: "Settings",
+      newSearchButton: "New search",
+      togglePanelOpen: "Open settings panel",
+      togglePanelClose: "Close settings panel",
       searchByCoords: "Search by Coordinates",
       coordsInputPlaceholder: "RA, Dec (e.g. 133.79, -7.24)",
       goButton: "Go",
@@ -950,9 +969,11 @@ export const translations: Record<Language, Translations> = {
       playPauseAria: "Play or Pause",
       prevFrameAria: "Previous image",
       nextFrameAria: "Next image",
+      loopLabel: "Loop",
+      loopAria: "Loop playback",
       enterFullscreen: "View fullscreen",
       exitFullscreen: "Exit fullscreen",
-      splitSecondMapButton: "Open 2nd Map (Split View)",
+      splitSecondMapButton: "Open Detailed Map",
       closeSecondMapButton: "Close 2nd Map",
       map1Title: "Map 1 · HiPS / MOC Sky",
       map2Title: "Map 2 · FITS Cutout & Epochs",
@@ -965,6 +986,9 @@ export const translations: Record<Language, Translations> = {
       preloadingFrames: (loaded, total) => `Caching images (${loaded}/${total})...`,
       selectDatesTooltip: "Select dates for video playback",
       noDateLabel: "No date",
+      cursorAudioOn: "Audio on",
+      cursorAudioOff: "Audio muted",
+      cursorAudioAria: "Toggle cursor space audio",
       molecules: {
         h2o: "Water Ice (H₂O)",
         co2: "Carbon Dioxide (CO₂)",

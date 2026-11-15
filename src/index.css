@@ -100,14 +100,15 @@
   50% { transform: translate(1.5px, -2px) rotate(0.8deg); }
 }
 @keyframes flamePulse {
-  0%, 100% { opacity: 0.75; transform: scaleY(1); }
-  50% { opacity: 1; transform: scaleY(1.22); }
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.22); }
 }
 .rocket-animate {
   animation: rocketThrust 1.1s var(--ease-out) infinite;
 }
 .flame-animate {
-  transform-origin: center top;
+  transform-box: fill-box;
+  transform-origin: 85% 15%;
   animation: flamePulse 0.45s ease-in-out infinite;
 }
 

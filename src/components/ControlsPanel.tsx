@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
   Eye,
   Layers,
-  Loader2,
   Sliders,
   Sparkles,
   X,
@@ -20,11 +19,8 @@ import {
   DEFAULT_CUTOUT_FOV_DEG,
   MAX_CUTOUT_FOV_DEG,
   MIN_CUTOUT_FOV_DEG,
-  parseDec,
-  parseRA,
 } from "../lib/coordinates";
 import { useLanguage } from "../i18n/LanguageContext";
-import { ShareButton } from "./ShareButton";
 
 interface ControlsPanelProps {
   raInput: string;
@@ -59,14 +55,11 @@ interface ControlsPanelProps {
   onSelectPreset: (preset: TargetPreset) => void;
   onSearchCelestialName: (name: string) => void;
   onOpenExposuresDrawer?: () => void;
+  hasVersions?: boolean;
+  onOpenGalleryModal?: () => void;
 }
 
 export const ControlsPanel: React.FC<ControlsPanelProps> = ({
-  raInput,
-  setRaInput,
-  decInput,
-  setDecInput,
-  collectionMode = "spherex_dr1",
   band,
   setBand,
   size,
@@ -80,96 +73,17 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   showCrosshair,
   setShowCrosshair,
   loading,
-  resolvingName,
   resolvedObject,
-  activePresetId,
   totalFound = 0,
   onClose,
   onChangeFov,
-  onSubmitCoords,
-  onSubmit,
-  onSelectPreset,
-  onSearchCelestialName,
   onOpenExposuresDrawer,
+  hasVersions = false,
+  onOpenGalleryModal,
 }) => {
-  const { t } = useLanguage();
-  const [nameQuery, setNameQuery] = useState("");
-  const [combinedCoords, setCombinedCoords] = useState(`${raInput}, ${decInput}`);
+  const { language, t } = useLanguage();
+  const isEn = language === "en";
   const [showAdvanced, setShowAdvanced] = useState(false);
-
-  useEffect(() => {
-    setCombinedCoords(`${raInput}, ${decInput}`);
-  }, [raInput, decInput]);
-
-  const handleCoordSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const raw = combinedCoords.trim();
-    if (!raw) return;
-
-    let parsedRaStr = raInput;
-    let parsedDecStr = decInput;
-
-    if (raw.includes(",")) {
-      const [left, right] = raw.split(",").map((s) => s.trim());
-      if (left && right) {
-        const raVal = parseRA(left);
-        const decVal = parseDec(right);
-        if (raVal !== null && decVal !== null) {
-          parsedRaStr = left;
-          parsedDecStr = right;
-        } else {
-          const nums = raw.match(/-?\d+(\.\d+)?/g);
-          if (nums && nums.length >= 6) {
-            const ra =
-              (parseFloat(nums[0]) + parseFloat(nums[1]) / 60 + parseFloat(nums[2]) / 3600) * 15;
-            const sign = right.includes("-") ? -1 : 1;
-            const dec =
-              sign *
-              (Math.abs(parseFloat(nums[3])) +
-                parseFloat(nums[4]) / 60 +
-                parseFloat(nums[5]) / 3600);
-            parsedRaStr = ra.toFixed(5);
-            parsedDecStr = dec.toFixed(5);
-          } else if (nums && nums.length >= 2) {
-            parsedRaStr = nums[0];
-            parsedDecStr = nums[1];
-          }
-        }
-      }
-    } else {
-      const nums = raw.match(/-?\d+(\.\d+)?/g);
-      if (nums && nums.length >= 6) {
-        const ra =
-          (parseFloat(nums[0]) + parseFloat(nums[1]) / 60 + parseFloat(nums[2]) / 3600) * 15;
-        const sign = raw.includes("-") ? -1 : 1;
-        const dec =
-          sign *
-          (Math.abs(parseFloat(nums[3])) +
-            parseFloat(nums[4]) / 60 +
-            parseFloat(nums[5]) / 3600);
-        parsedRaStr = ra.toFixed(5);
-        parsedDecStr = dec.toFixed(5);
-      } else if (nums && nums.length >= 2) {
-        parsedRaStr = nums[0];
-        parsedDecStr = nums[1];
-      }
-    }
-
-    setRaInput(parsedRaStr);
-    setDecInput(parsedDecStr);
-
-    if (onSubmitCoords) {
-      onSubmitCoords(parsedRaStr, parsedDecStr);
-    } else {
-      onSubmit(e);
-    }
-  };
-
-  const handleNameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nameQuery.trim()) return;
-    onSearchCelestialName(nameQuery.trim());
-  };
 
   const numericSize = Math.min(
     MAX_CUTOUT_FOV_DEG,
@@ -194,99 +108,19 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           </div>
         )}
 
-        {/* Search by Coordinates */}
-        <form onSubmit={handleCoordSearch} className="space-y-1.5">
-          <label htmlFor="input-coords" className="block text-xs font-medium text-slate-300">
-            {t.chrono.searchByCoords}
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="input-coords"
-              type="text"
-              value={combinedCoords}
-              onChange={(e) => setCombinedCoords(e.target.value)}
-              placeholder={t.chrono.coordsInputPlaceholder}
-              className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00D2FF]/70 font-mono"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-press shrink-0 px-3 py-2 rounded-xl bg-white/10 hover:bg-[#00D2FF]/20 border border-white/10 hover:border-[#00D2FF]/50 text-xs font-medium text-white cursor-pointer disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t.chrono.goButton}
-            </button>
-          </div>
-        </form>
-
-        {/* Search by Name */}
-        <div className="space-y-2">
-          <form onSubmit={handleNameSubmit} className="space-y-1.5">
-            <label htmlFor="input-name" className="block text-xs font-medium text-slate-300">
-              {t.chrono.searchByName}
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="input-name"
-                type="text"
-                value={nameQuery}
-                onChange={(e) => setNameQuery(e.target.value)}
-                placeholder={t.chrono.nameInputPlaceholder}
-                className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00D2FF]/70"
-              />
-              <button
-                type="submit"
-                disabled={resolvingName || loading || !nameQuery.trim()}
-                className="btn-press shrink-0 px-3 py-2 rounded-xl bg-white/10 hover:bg-[#00D2FF]/20 border border-white/10 hover:border-[#00D2FF]/50 text-xs font-medium text-white cursor-pointer disabled:opacity-50"
-              >
-                {resolvingName ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  t.chrono.searchButton
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Featured Preset Pills */}
-          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-            {t.presets.slice(0, 5).map((preset) => {
-              const isSelected = activePresetId === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    setNameQuery(preset.queryName);
-                    onSelectPreset(preset);
-                  }}
-                  title={preset.description}
-                  className={`btn-press px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
-                    isSelected
-                      ? "bg-[#00D2FF]/15 border-[#00D2FF]/65 text-white shadow-[0_0_12px_rgba(0,210,255,0.2)]"
-                      : "bg-white/[0.03] border-white/10 text-slate-300 hover:bg-white/[0.08] hover:text-white"
-                  }`}
-                >
-                  <Sparkles className="w-2.5 h-2.5 text-[#00D2FF] shrink-0" />
-                  <span>{preset.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {resolvedObject && (
-            <div className="rounded-xl bg-[#00D2FF]/[0.07] border border-[#00D2FF]/30 px-3 py-2 text-[11px] flex items-center justify-between gap-2">
-              <div className="truncate">
-                <span className="font-mono font-semibold text-white">
-                  {resolvedObject.canonicalName}
-                </span>
-                <span className="text-slate-400 ml-1.5">({resolvedObject.otype})</span>
-              </div>
-              <span className="font-mono text-[10px] text-[#00D2FF] shrink-0">
-                {resolvedObject.resolverSource}
+        {resolvedObject && (
+          <div className="rounded-xl bg-[#00D2FF]/[0.07] border border-[#00D2FF]/30 px-3 py-2 text-[11px] flex items-center justify-between gap-2">
+            <div className="truncate">
+              <span className="font-mono font-semibold text-white">
+                {resolvedObject.canonicalName}
               </span>
+              <span className="text-slate-400 ml-1.5">({resolvedObject.otype})</span>
             </div>
-          )}
-        </div>
+            <span className="font-mono text-[10px] text-[#00D2FF] shrink-0">
+              {resolvedObject.resolverSource}
+            </span>
+          </div>
+        )}
 
         {/* Zoom / Field of View Slider */}
         <div className="space-y-2 pt-1">
@@ -309,6 +143,22 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
             className="apple-slider w-full"
           />
         </div>
+
+        {/* D1–D6 Spectral Bands & Versions Gallery */}
+        {hasVersions && onOpenGalleryModal && (
+          <button
+            type="button"
+            onClick={onOpenGalleryModal}
+            title={t.viewer.galleryTitle}
+            className="btn-press w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-[#00D2FF]/15 border border-white/10 hover:border-[#00D2FF]/45 text-xs font-medium text-slate-200 hover:text-white cursor-pointer transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-[#00D2FF]" />
+              <span>{isEn ? "Bands D1–D6" : "Bandas D1–D6"}</span>
+            </span>
+            <span className="text-[#00D2FF] font-mono">→</span>
+          </button>
+        )}
 
         {/* Collapsible Scientific & Band Controls */}
         <div className="pt-2 border-t border-white/10 space-y-2">
@@ -431,19 +281,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                   <span className="text-[#00D2FF] font-mono">→</span>
                 </button>
               )}
-
-              <div className="pt-1">
-                <ShareButton
-                  ra={raInput}
-                  dec={decInput}
-                  collection={collectionMode}
-                  band={band}
-                  size={size}
-                  stretch={stretch}
-                  colormap={colormap}
-                  subtractZodi={subtractZodi}
-                />
-              </div>
             </div>
           )}
         </div>

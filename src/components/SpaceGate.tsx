@@ -22,6 +22,7 @@ import {
   parseRA as baseParseRA,
 } from "../lib/coordinates";
 import { useLanguage } from "../i18n/LanguageContext";
+import { CursorAudioEngine } from "../lib/cursorAudio";
 import type {
   CollectionQueryMode,
   ResolvedCelestialObject,
@@ -84,6 +85,7 @@ export interface CosmicBackgroundHandle {
 
 export interface CosmicBackgroundProps {
   mode?: "gate" | "explorer";
+  cursorAudio?: boolean;
   onCursorSky?: (sky: { ra: number; dec: number } | null) => void;
 }
 
@@ -200,9 +202,11 @@ function viewToSky(
 }
 
 export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgroundProps>(
-  function CosmicBackground({ mode = "gate", onCursorSky }, ref) {
+  function CosmicBackground({ mode = "gate", cursorAudio = true, onCursorSky }, ref) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const modeRef = useRef(mode);
+    const cursorAudioRef = useRef(cursorAudio);
+    const audioEngineRef = useRef<CursorAudioEngine | null>(null);
     const onCursorSkyRef = useRef(onCursorSky);
     const warpRef = useRef<{
       start: number;
@@ -214,7 +218,14 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
     const viewRef = useRef({ ra0: 133.8, dec0: 12, sphereR: 1, cx: 0, cy: 0 });
 
     modeRef.current = mode;
+    cursorAudioRef.current = cursorAudio;
     onCursorSkyRef.current = onCursorSky;
+
+    useEffect(() => {
+      if (mode !== "gate" || !cursorAudio) {
+        audioEngineRef.current?.silence();
+      }
+    }, [mode, cursorAudio]);
 
     useImperativeHandle(ref, () => ({
       warpTo: (target, durationMs = 1200) =>
@@ -280,19 +291,61 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
       resize();
       window.addEventListener("resize", resize);
 
+      const audioEngine = new CursorAudioEngine();
+      audioEngineRef.current = audioEngine;
+
       const mouse = { x: w / 2, y: h / 2, sx: w / 2, sy: h / 2, inside: false, moved: true };
+      let lastMoveX = w / 2;
+      let lastMoveY = h / 2;
+      let lastMoveTime = performance.now();
+      let instantSpeed = 0;
+      let smoothedSpeed = 0;
+
+      const tryUnlockAudio = () => {
+        if (modeRef.current === "gate" && cursorAudioRef.current) {
+          audioEngine.unlock();
+        }
+      };
+
       const onMove = (e: PointerEvent) => {
+        const now = performance.now();
+        if (!mouse.inside) {
+          lastMoveX = e.clientX;
+          lastMoveY = e.clientY;
+          lastMoveTime = now;
+          instantSpeed = 0;
+        } else {
+          const dtMs = Math.max(4, now - lastMoveTime);
+          const dist = Math.hypot(e.clientX - lastMoveX, e.clientY - lastMoveY);
+          instantSpeed = Math.min(8, dist / dtMs);
+          lastMoveX = e.clientX;
+          lastMoveY = e.clientY;
+          lastMoveTime = now;
+        }
         mouse.x = e.clientX;
         mouse.y = e.clientY;
         mouse.inside = true;
         mouse.moved = true;
+        tryUnlockAudio();
       };
       const onLeave = () => {
         mouse.inside = false;
         mouse.moved = true;
+        instantSpeed = 0;
+        smoothedSpeed = 0;
+        audioEngine.silence();
         onCursorSkyRef.current?.(null);
       };
+      const onVisibilityOrBlur = () => {
+        instantSpeed = 0;
+        smoothedSpeed = 0;
+        audioEngine.silence();
+      };
       window.addEventListener("pointermove", onMove, { passive: true });
+      window.addEventListener("pointerdown", tryUnlockAudio, { passive: true });
+      window.addEventListener("keydown", tryUnlockAudio, { passive: true });
+      window.addEventListener("blur", onVisibilityOrBlur);
+      document.addEventListener("visibilitychange", onVisibilityOrBlur);
       document.addEventListener("pointerleave", onLeave);
 
       let dim = modeRef.current === "explorer" ? 1 : 0;
@@ -364,6 +417,22 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
 
         const targetDim = modeRef.current === "explorer" ? 1 : 0;
         dim += (targetDim - dim) * Math.min(1, dt * 3);
+
+        const audioActive = modeRef.current === "gate" && cursorAudioRef.current && mouse.inside;
+        if (!audioActive) {
+          instantSpeed = 0;
+          smoothedSpeed = 0;
+          audioEngine.silence();
+        } else {
+          if (now - lastMoveTime > 70) {
+            instantSpeed *= Math.exp(-dt * 14);
+            if (instantSpeed < 0.005) instantSpeed = 0;
+          }
+          const smoothRate = instantSpeed > smoothedSpeed ? 18 : 10;
+          smoothedSpeed += (instantSpeed - smoothedSpeed) * Math.min(1, dt * smoothRate);
+          audioEngine.update(smoothedSpeed, true);
+        }
+
         if (dim > 0.97 && !warpRef.current && frame % 2 === 1) return;
 
         let warp = 0;
@@ -533,8 +602,14 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
         cancelAnimationFrame(raf);
         window.removeEventListener("resize", resize);
         window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerdown", tryUnlockAudio);
+        window.removeEventListener("keydown", tryUnlockAudio);
+        window.removeEventListener("blur", onVisibilityOrBlur);
+        document.removeEventListener("visibilitychange", onVisibilityOrBlur);
         document.removeEventListener("pointerleave", onLeave);
         reducedMq.removeEventListener("change", onReducedChange);
+        audioEngine.dispose();
+        audioEngineRef.current = null;
         warpRef.current?.resolve?.();
       };
     }, []);
@@ -869,9 +944,6 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
       {/* CONTENEDOR CENTRAL CON LOS 3 BLOQUES */}
       <div className="relative z-10 w-full max-w-[540px] flex flex-col gap-3.5 my-auto">
         <div className="text-center mb-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#00D2FF]/10 border border-[#00D2FF]/30 text-[#00D2FF] text-[10px] font-mono uppercase tracking-widest mb-2">
-            <span>CHRONO-SPHEREx · NASA SPACE APPS</span>
-          </div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-[-0.025em] text-white">
             {t.chrono.entryTitle}
           </h1>
@@ -1097,7 +1169,7 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
         {/* BLOQUE OBLIGATORIO 2 — Example Celestial Bodies */}
         <div
           ref={dropdownRef}
-          className="glass-panel rounded-[20px] p-4 sm:p-5 border border-white/12 space-y-2.5 relative"
+          className="glass-panel rounded-[20px] p-4 sm:p-5 border border-white/12 space-y-2.5 relative z-30"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1110,69 +1182,71 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setDropdownOpen((v) => !v)}
-            aria-expanded={dropdownOpen}
-            className="btn-press w-full rounded-xl bg-black/55 hover:bg-black/70 border border-white/15 hover:border-[#00D2FF]/60 px-3.5 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer"
-          >
-            <div className="flex items-center justify-between w-full min-w-0 pr-1">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2 h-2 rounded-full bg-[#00D2FF] shrink-0" />
-                <span className="text-xs sm:text-sm font-semibold text-white truncate">
-                  {activeKnownTarget.label}
-                </span>
-                <span className="text-[11px] text-slate-400 truncate hidden sm:inline">
-                  — {isEn ? activeKnownTarget.subtitleEn : activeKnownTarget.subtitleEs}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setDropdownOpen((v) => !v)}
+              aria-expanded={dropdownOpen}
+              className="btn-press w-full rounded-xl bg-black/55 hover:bg-black/70 border border-white/15 hover:border-[#00D2FF]/60 px-3.5 py-2.5 flex items-center justify-between gap-2 text-left cursor-pointer"
+            >
+              <div className="flex items-center justify-between w-full min-w-0 pr-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-[#00D2FF] shrink-0" />
+                  <span className="text-xs sm:text-sm font-semibold text-white truncate">
+                    {activeKnownTarget.label}
+                  </span>
+                  <span className="text-[11px] text-slate-400 truncate hidden sm:inline">
+                    — {isEn ? activeKnownTarget.subtitleEn : activeKnownTarget.subtitleEs}
+                  </span>
+                </div>
+                <span className="font-mono text-[11px] text-[#00D2FF] shrink-0 ml-2">
+                  ({activeKnownTarget.shortCoords})
                 </span>
               </div>
-              <span className="font-mono text-[11px] text-[#00D2FF] shrink-0 ml-2">
-                ({activeKnownTarget.shortCoords})
-              </span>
-            </div>
-            <ChevronDown
-              className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
-                dropdownOpen ? "rotate-180 text-[#00D2FF]" : ""
-              }`}
-            />
-          </button>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
+                  dropdownOpen ? "rotate-180 text-[#00D2FF]" : ""
+                }`}
+              />
+            </button>
 
-          {dropdownOpen && (
-            <div className="mt-1 max-h-[172px] overflow-y-auto rounded-2xl bg-[#0B101B]/95 backdrop-blur-2xl border border-[#00D2FF]/40 shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-white/10">
-              {GATE_KNOWN_TARGETS.map((item) => {
-                const active = selectedTargetId === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handlePickKnownTarget(item)}
-                    className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
-                      active
-                        ? "bg-[#00D2FF]/15 text-white"
-                        : "hover:bg-white/[0.06] text-slate-200"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-[13px] font-semibold text-white">
-                          {item.label}
-                        </span>
-                        <span className="font-mono text-[11px] text-[#00D2FF]">
-                          ({item.shortCoords})
-                        </span>
+            {dropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-[172px] overflow-y-auto rounded-2xl bg-[#0B101B]/95 backdrop-blur-2xl border border-[#00D2FF]/40 shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-white/10">
+                {GATE_KNOWN_TARGETS.map((item) => {
+                  const active = selectedTargetId === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handlePickKnownTarget(item)}
+                      className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
+                        active
+                          ? "bg-[#00D2FF]/15 text-white"
+                          : "hover:bg-white/[0.06] text-slate-200"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs sm:text-[13px] font-semibold text-white">
+                            {item.label}
+                          </span>
+                          <span className="font-mono text-[11px] text-[#00D2FF]">
+                            ({item.shortCoords})
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {isEn ? item.subtitleEn : item.subtitleEs}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {isEn ? item.subtitleEn : item.subtitleEs}
-                      </p>
-                    </div>
-                    <span className="text-[10px] font-mono text-slate-400 shrink-0">
-                      {active ? "✓" : "→"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                      <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                        {active ? "✓" : "→"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

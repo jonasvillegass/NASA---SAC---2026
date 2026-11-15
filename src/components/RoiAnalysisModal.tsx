@@ -6,10 +6,12 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  Dna,
   FlaskConical,
   GitCompareArrows,
   Loader2,
   MapPin,
+  Orbit,
   ScanSearch,
   Trash2,
   TrendingUp,
@@ -597,6 +599,275 @@ export const RoiAnalysisModal: React.FC<RoiAnalysisModalProps> = ({
                 </div>
               )}
 
+              {/* Probabilistic Celestial Body Classification & Habitability Assessment */}
+              {analysis && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Card 1: Celestial Body Classification */}
+                  <div className="rounded-2xl bg-white/[0.03] border border-[#00D2FF]/25 p-4 space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Orbit className="w-4 h-4 text-[#00D2FF] shrink-0" />
+                        <h4 className="text-xs sm:text-sm font-semibold text-white">
+                          {isEn
+                            ? "Probable Celestial Body Type"
+                            : "Tipo Probable de Cuerpo Celeste"}
+                        </h4>
+                      </div>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                          analysis.celestialClassification.confidence === "high"
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40"
+                            : analysis.celestialClassification.confidence === "moderate"
+                              ? "bg-[#00D2FF]/20 text-[#00D2FF] border-[#00D2FF]/40"
+                              : analysis.celestialClassification.confidence === "low"
+                                ? "bg-amber-500/20 text-amber-300 border-amber-400/40"
+                                : "bg-slate-700/40 text-slate-400 border-white/10"
+                        }`}
+                      >
+                        {analysis.celestialClassification.confidence === "high"
+                          ? isEn
+                            ? "High confidence"
+                            : "Confianza alta"
+                          : analysis.celestialClassification.confidence === "moderate"
+                            ? isEn
+                              ? "Moderate confidence"
+                              : "Confianza moderada"
+                            : analysis.celestialClassification.confidence === "low"
+                              ? isEn
+                                ? "Low confidence"
+                                : "Confianza baja"
+                              : isEn
+                                ? "Insufficient data"
+                                : "Datos insuficientes"}
+                      </span>
+                    </div>
+
+                    {analysis.celestialClassification.topCandidate ? (
+                      <>
+                        <div className="rounded-xl bg-black/45 border border-white/10 p-3 space-y-1.5">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-xs sm:text-sm font-semibold text-white leading-snug">
+                              {isEn
+                                ? analysis.celestialClassification.topCandidate.nameEn
+                                : analysis.celestialClassification.topCandidate.nameEs}
+                            </span>
+                            <span className="text-base font-bold font-mono text-[#00D2FF] shrink-0">
+                              {analysis.celestialClassification.topCandidate.probabilityPct.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-400">
+                            {analysis.celestialClassification.estimatedTeffK !== null && (
+                              <span>
+                                {isEn ? "Wien T_eff:" : "T_eff Wien:"}{" "}
+                                <strong className="text-amber-300">
+                                  ~{analysis.celestialClassification.estimatedTeffK} K
+                                </strong>
+                              </span>
+                            )}
+                            {analysis.celestialClassification.spectralSlope !== null && (
+                              <span>
+                                · α_IR:{" "}
+                                <strong className="text-slate-200">
+                                  {analysis.celestialClassification.spectralSlope > 0 ? "+" : ""}
+                                  {analysis.celestialClassification.spectralSlope}
+                                </strong>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {analysis.celestialClassification.candidates.slice(0, 4).map((cand, idx) => {
+                            const feats = isEn
+                              ? cand.matchingFeaturesEn
+                              : cand.matchingFeaturesEs;
+                            return (
+                              <div key={cand.id} className="space-y-1">
+                                <div className="flex items-center justify-between gap-2 text-[11px]">
+                                  <span
+                                    className={`truncate ${
+                                      idx === 0 ? "text-white font-medium" : "text-slate-300"
+                                    }`}
+                                  >
+                                    {isEn ? cand.nameEn : cand.nameEs}
+                                  </span>
+                                  <span className="font-mono text-[#00D2FF] shrink-0">
+                                    {cand.probabilityPct.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      idx === 0 ? "bg-[#00D2FF]" : "bg-sky-400/50"
+                                    }`}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(2, cand.probabilityPct))}%`,
+                                    }}
+                                  />
+                                </div>
+                                {feats.length > 0 && (
+                                  <div className="text-[10px] text-slate-400 truncate">
+                                    {feats.join(" · ")}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-xl bg-black/40 border border-white/10 p-3 text-xs text-slate-400">
+                        {isEn
+                          ? "Scan at least 4 infrared channels in this area to classify the probable celestial body."
+                          : "Escaneá al menos 4 canales infrarrojos en esta área para clasificar el cuerpo celeste probable."}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card 2: Life / Habitability Probability */}
+                  <div className="rounded-2xl bg-white/[0.03] border border-emerald-400/25 p-4 space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Dna className="w-4 h-4 text-emerald-300 shrink-0" />
+                        <h4 className="text-xs sm:text-sm font-semibold text-white">
+                          {isEn
+                            ? "Conditions for Life (as we know it)"
+                            : "Condiciones para la Vida (como la conocemos)"}
+                        </h4>
+                      </div>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                          analysis.habitability.tier === "high"
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40"
+                            : analysis.habitability.tier === "moderate"
+                              ? "bg-amber-500/20 text-amber-300 border-amber-400/40"
+                              : analysis.habitability.tier === "low"
+                                ? "bg-rose-500/20 text-rose-300 border-rose-400/40"
+                                : "bg-slate-700/40 text-slate-400 border-white/10"
+                        }`}
+                      >
+                        {analysis.habitability.tier === "high"
+                          ? isEn
+                            ? "High potential"
+                            : "Potencial alto"
+                          : analysis.habitability.tier === "moderate"
+                            ? isEn
+                              ? "Moderate prebiotic"
+                              : "Prebiótico moderado"
+                            : analysis.habitability.tier === "low"
+                              ? isEn
+                                ? "Low potential"
+                                : "Potencial bajo"
+                              : isEn
+                                ? "Insufficient data"
+                                : "Datos insuficientes"}
+                      </span>
+                    </div>
+
+                    {analysis.habitability.probabilityPct !== null ? (
+                      <>
+                        <div className="rounded-xl bg-black/45 border border-white/10 p-3 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                              {isEn
+                                ? "Life-Supporting Conditions Probability"
+                                : "Probabilidad de Condiciones Aptas"}
+                            </div>
+                            <div className="text-2xl font-bold font-mono text-emerald-300">
+                              {analysis.habitability.probabilityPct.toFixed(1)}%
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {(["C", "H", "N", "O"] as const).map((el) => {
+                              const present = analysis.habitability.chnopsElements.includes(el);
+                              return (
+                                <span
+                                  key={el}
+                                  title={
+                                    present
+                                      ? isEn
+                                        ? `Bio-element ${el} detected in IR bands`
+                                        : `Bioelemento ${el} detectado en bandas IR`
+                                      : isEn
+                                        ? `Bio-element ${el} not detected yet`
+                                        : `Bioelemento ${el} aún no detectado`
+                                  }
+                                  className={`w-6 h-6 rounded-lg font-mono text-xs font-bold flex items-center justify-center border ${
+                                    present
+                                      ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/50"
+                                      : "bg-white/[0.03] text-slate-500 border-white/10"
+                                  }`}
+                                >
+                                  {el}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {analysis.habitability.factors.map((f) => (
+                            <div key={f.id} className="space-y-0.5">
+                              <div className="flex items-center justify-between gap-2 text-[11px]">
+                                <span className="text-slate-200 truncate">
+                                  {isEn ? f.labelEn : f.labelEs}{" "}
+                                  <span className="text-[10px] font-mono text-slate-500">
+                                    ({f.weightPct}%)
+                                  </span>
+                                </span>
+                                <span className="font-mono text-slate-300 shrink-0">
+                                  {f.status === "no_coverage"
+                                    ? isEn
+                                      ? "N/A"
+                                      : "S/C"
+                                    : `${f.scorePct.toFixed(0)}%`}
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    f.status === "favorable"
+                                      ? "bg-emerald-400"
+                                      : f.status === "partial"
+                                        ? "bg-amber-400"
+                                        : f.status === "unfavorable"
+                                          ? "bg-rose-400"
+                                          : "bg-slate-600"
+                                  }`}
+                                  style={{
+                                    width: `${
+                                      f.status === "no_coverage"
+                                        ? 0
+                                        : Math.min(100, Math.max(3, f.scorePct))
+                                    }%`,
+                                  }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-slate-400 leading-snug">
+                                {isEn ? f.detailEn : f.detailEs}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="text-[11px] text-slate-300 bg-black/35 border border-white/10 rounded-xl p-2.5 leading-relaxed">
+                          {isEn
+                            ? analysis.habitability.summaryEn
+                            : analysis.habitability.summaryEs}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="rounded-xl bg-black/40 border border-white/10 p-3 text-xs text-slate-400">
+                        {isEn
+                          ? analysis.habitability.summaryEn
+                          : analysis.habitability.summaryEs}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Relative Proportions Section */}
               <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-4 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -930,6 +1201,55 @@ export const RoiAnalysisModal: React.FC<RoiAnalysisModalProps> = ({
                             </div>
                           )}
                         </>
+                      )}
+
+                      {/* Side-by-side Body Type & Habitability Comparison */}
+                      {readingA && readingB && (
+                        <div className="pt-2 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px]">
+                          {[
+                            { label: isEn ? "Region A" : "Región A", reading: readingA, accent: "text-[#00D2FF]" },
+                            { label: isEn ? "Region B" : "Región B", reading: readingB, accent: "text-emerald-300" },
+                          ].map(({ label, reading, accent }) => {
+                            const cls = reading.analysis.celestialClassification?.topCandidate;
+                            const hab = reading.analysis.habitability;
+                            return (
+                              <div
+                                key={label}
+                                className="rounded-xl bg-black/40 border border-white/10 p-2.5 space-y-1"
+                              >
+                                <div className={`font-mono font-semibold ${accent}`}>
+                                  {label} · {reading.name}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 text-slate-300">
+                                  <span className="truncate">
+                                    {cls
+                                      ? isEn
+                                        ? cls.nameEn
+                                        : cls.nameEs
+                                      : isEn
+                                        ? "Unclassified"
+                                        : "Sin clasificar"}
+                                  </span>
+                                  {cls && (
+                                    <span className="font-mono text-[#00D2FF] shrink-0">
+                                      {cls.probabilityPct.toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 text-slate-400">
+                                  <span>
+                                    {isEn ? "Life conditions:" : "Condiciones de vida:"}
+                                  </span>
+                                  <span className="font-mono text-emerald-300 font-semibold">
+                                    {hab?.probabilityPct !== null && hab?.probabilityPct !== undefined
+                                      ? `${hab.probabilityPct.toFixed(1)}%`
+                                      : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   ) : null}
