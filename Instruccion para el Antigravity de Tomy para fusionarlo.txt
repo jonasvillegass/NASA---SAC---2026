@@ -7,160 +7,104 @@ Fecha: 15 de Noviembre de 2026
 ¡Hola Tomy (y Antigravity / Claude de Tomy)!
 
 Armamos este documento para que tu agente pueda integrar en menos de 2 minutos
-(o cuando vos decidas) el nuevo BLOQUE PROBABILÍSTICO DE ASTROBIOLOGÍA,
-HABITABILIDAD, QUÍMICA PREBIÓTICA (CHNOPS) Y BIOFIRMAS, junto con el bloque de
-Estadística PyE + Termodinámica de Joako, sin romper absolutamente nada de tu
-código principal (`ViewerPanel.tsx`, `RoiAnalysisModal.tsx`, `spectralAnalysis.ts`).
+(o cuando vos decidas) cualquiera de nuestros 4 BLOQUES MODULARES DESACOPLADOS
+y el sistema de NOMBRE DE PROYECTO AUTOMÁTICO, sin romper absolutamente nada de
+tu código principal (`ViewerPanel.tsx`, `RoiAnalysisModal.tsx`, `spectralAnalysis.ts`).
 
 IMPORTANTE:
 Todos nuestros módulos están encapsulados en carpetas 100% independientes dentro
-de `src/features/` y ya compilan con 0 errores (`tsc && vite build` verificado).
-No tocamos tus archivos principales para evitar cualquier conflicto de Git.
+de `src/features/` y `src/config/projectIdentity.ts`, y ya compilan con 0 errores
+(`tsc && vite build` verificado). No tocamos tus archivos principales para evitar
+cualquier conflicto de Git.
 
 --------------------------------------------------------------------------------
-1. ¿QUÉ HACE EL NUEVO BLOQUE (`src/features/astrobiology/`) Y POR QUÉ HABLA
-   SIEMPRE EN PROBABILIDADES?
+1. CATÁLOGO DE LOS 4 BLOQUES EN `src/features/` + IDENTIDAD AUTOMÁTICA
 --------------------------------------------------------------------------------
-Para cumplir con el máximo rigor ante el jurado de la NASA y responder a la
-pregunta del público ("¿puede haber vida o ingredientes para la vida en este
-planeta / cuerpo celeste?"), el módulo jamás afirma "Hay vida: SÍ/NO" de forma
-determinista. En su lugar, utiliza todas las herramientas del proyecto, las
-fuentes de la NASA y los libros de cátedra de la bóveda de Obsidian:
+1) `src/features/kinetic-sonification/` --> NUEVO BLOQUE DE SONIFICACIÓN CINÉTICA
+   DOPPLER DEL CURSOR Y AUDIO ESPACIAL 3D HRTF (`<KineticSonificationLab />`):
+   - Mapea en tiempo real la cinemática del cursor (velocidad v en px/s y arcsec/s,
+     aceleración brusca a = |dv/dt| en px/s², dirección θ y flujo FITS real I(x,y)
+     en MJy/sr) directamente a la FRECUENCIA DE SONIDO (Hz) con Web Audio API:
+     * Movimiento lento/suave (< 180 px/s) -> Frecuencias graves y cálidas
+       (65 - 180 Hz) + Sub-bajo LFE de Ley de Wien (42 - 95 Hz) + filtro pasa-bajos.
+     * Movimiento rápido/brusco (alta velocidad o tirón brusco dv/dt) -> Frecuencia
+       aguda por Efecto Doppler (850 - 3500 Hz), acordes armónicos blueshift,
+       vibrato FM, pulso pulsar/Geiger rápido (8 - 22 Hz) y ondas de choque Mach.
+   - Incluye **Modo Cursor Global de Pantalla** (`Global Screen Cursor: ON`):
+     cuando se activa, escucha `window.mousemove` para que al mover el cursor
+     sobre el Mapa 1 o el Mapa 2 de Tomy suene la frecuencia en vivo en 3D HRTF.
+   - 4 Modos de Nominación Global:
+     1. `DOPPLER_COSMIC_ORGAN` (Órgano Cósmico Doppler)
+     2. `BLIND_ASTRONOMER_TACTILE_SONAR` (Sonar Táctil para Astrónomos Ciegos)
+     3. `MOLECULAR_RESONANCE_HARP` (Arpa de Resonancia Molecular H2O, CH4, CO2, CO)
+     4. `RELATIVISTIC_MACH_HORIZON` (Horizonte Mach hipersensible a la brusquedad)
 
-A) CONEXIÓN DIRECTA CON TU CÓDIGO (`src/lib/spectralAnalysis.ts`):
-   Recibe directamente tu `roiAnalysis` (`RoiChemicalAnalysisResult`) y `roi`
-   (`SkyRoiSelection`) cuando el usuario selecciona un área en el Mapa 2, o bien
-   procesa los recortes FITS reales (`observations` + `cachedCutouts`).
+2) `src/features/astrobiology/` --> BLOQUE DE PROBABILIDAD DE VIDA, BIOFIRMAS,
+   QUÍMICA PREBIÓTICA (CHNOPS) Y OCÉANOS EUTÉCTICOS (`<AstrobiologyLab />`):
+   - Habla 100% en probabilidades bayesianas P(H1 | E) Abiótico, P(H2 | E)
+     Reservorio Prebiótico CHNOPS y P(H3 | E) Nicho Habitable / Desequilibrio Redox
+     con intervalos de confianza del 95% (Devore, Chang, Çengel, Sears-Zemansky).
 
-B) INFERENCIA BAYESIANA TRIPARTITA (Jay Devore, Cap. 2.4 & Catling et al. 2018):
-   Calcula la distribución de probabilidad posterior P(H_i | E) ± IC_95%:
-   - P(H1 | E): Hipótesis Nula Abiótica (el espectro se explica 100% por física
-     y química inerte en equilibrio).
-   - P(H2 | E): Reservorio Prebiótico Activo CHNOPS (Tema 3 de NASA SPHEREx:
-     hielos biogénicos de H2O, metanol CH3OH, ión cianato OCN-, amoníaco NH3,
-     PAHs y metano CH4 capaces de formar azúcares de ARN y aminoácidos).
-   - P(H3 | E): Nicho Habitable / Anomalía por Desequilibrio Redox (coexistencia
-     de solvente líquido/eutéctico + desequilibrio químico redox CH4/NH3 con
-     CO2/H2O, candidato para seguimiento con JWST).
-   Además reporta Factores de Bayes (K21 y K31), Riesgo de Falso Positivo
-   Abiótico (Error Tipo I α) y Riesgo de Señal Omitida (Error Tipo II β).
+3) `src/features/statistics/` --> BLOQUE DE ESTADÍSTICA PyE (DEVORE), DIPOLO VS.
+   MONOPOLO Y TERMODINÁMICA DE JOAKO (`<TemporalStatsLab />`).
 
-C) LOS 5 PILARES PROBABILÍSTICOS CON LIBROS UNIVERSITARIOS Y FUENTES NASA:
-   1. Solvente Hidrológico P(H2O): Ley de Beer-Lambert en 2.02 µm (D3) y 3.05 µm
-      (D4) ponderada por significancia gaussiana (Raymond Chang 11.ª ed. Cap. 11).
-   2. Inventario Orgánico Prebiótico P(CHNOPS): Densidad de columna N_col de C,
-      H, N, O en CH3OH (3.53 µm), OCN- (4.62 µm), NH3 (2.96 µm), PAH (3.29 µm)
-      y CH4 (3.32 µm) (Raymond Chang Cap. 24 & Tema 3 SPHEREx).
-   3. Desequilibrio Termoquímico Redox P(deseq): Coexistencia fuera del
-      equilibrio de Gibbs (ΔG° != 0) entre especies reducidas (CH4, NH3) y
-      oxidadas (CO2, H2O, CO) (Raymond Chang Caps. 15 y 18; Lovelock 1965).
-   4. Compatibilidad Termodinámica y Océano Subsuperficial Eutéctico P(termo):
-      Combina Ley de Planck, Wien (T_eff) y Stefan-Boltzmann (E_b) (Yunus Çengel
-      7.ª ed. Cap. 12) con el Descenso Crioscópico Coligativo ΔT_f = K_f · m
-      (Raymond Chang Cap. 12), demostrando cómo el NH3 y CH3OH actúan como
-      anticongelante bajando el punto de congelación del agua hasta 176 K (-97 °C)
-      y habilitando océanos subsuperficiales bajo cortezas de hielo (modelo
-      Europa / Encélado / Quaoar / Planeta X).
-   5. Rigor Estadístico MVUE y Co-adición P(confianza): Ganancia SNR x4.123
-      (17 bandas/detector), Potencia (1 - β) y estabilidad cinemática Dipolo vs.
-      Monopolo (Jay Devore Caps. 5-8 & Sears-Zemansky Vols. 1-2).
+4) `src/features/chemistry/` --> BLOQUE DE ESPECTROSCOPÍA DE 102 BANDAS Y
+   GENERADOR DE INFORMES DE TESIS EN NORMAS APA 7 (`<AstroChemistryLab />`).
+
+5) `src/config/projectIdentity.ts` --> NOMBRE AUTOMÁTICO DEL PROYECTO (SSOT):
+   - Exporta `PROJECT_IDENTITY` y `PROJECT_NAME`. Si cualquiera del equipo cambia
+     el nombre en `NASA -SPA - 2026/00_CONFIG_NOMBRE_PROYECTO.md` dentro de
+     Obsidian, el daemon `sync_project_name.py` actualiza automáticamente toda la
+     bóveda de Obsidian y `src/config/projectIdentity.ts`.
 
 --------------------------------------------------------------------------------
-2. ESTRUCTURA DE ARCHIVOS DISPONIBLES EN `src/features/`
+2. PROMPT EXACTO PARA PEGARLE AL ANTIGRAVITY / CLAUDE DE TOMY
 --------------------------------------------------------------------------------
-1) `src/features/astrobiology/`  --> Bloque de Probabilidad de Vida, Biofirmas,
-                                     CHNOPS y Océanos Eutécticos (`AstrobiologyLab`)
-2) `src/features/statistics/`    --> Bloque de Estadística PyE (Devore), Dipolo vs
-                                     Monopolo y Termodinámica de Joako (`TemporalStatsLab`)
-3) `src/features/chemistry/`     --> Bloque de Espectroscopía de 102 Bandas y
-                                     Generador de Tesis APA 7 (`AstroChemistryLab`)
-
---------------------------------------------------------------------------------
-3. PROMPT EXACTO PARA PEGARLE AL ANTIGRAVITY / CLAUDE DE TOMY
---------------------------------------------------------------------------------
-Tomy, si querés fusionarlo en el visor o en tu modal de análisis por área (ROI),
+Tomy, cuando quieras integrar cualquiera de los bloques en el visor o en el modal,
 copiá y pegale este bloque a tu Antigravity:
 
 """
 Hola Antigravity:
-En `src/features/astrobiology/` y `src/features/statistics/` ya están listos y
-compilados los módulos desacoplados del equipo:
-1. `src/features/astrobiology`: exporta la función pura `evaluateProbabilisticAstrobiology`
-   y el componente React `<AstrobiologyLab />`.
-2. `src/features/statistics`: exporta `computeJoakoStatisticalThermodynamics`,
-   `analyzeTemporalAstrophysics` y el componente React `<TemporalStatsLab />`.
+En `src/features/` ya están listos y compilados los 4 módulos desacoplados del equipo:
+1. `src/features/kinetic-sonification`: exporta `<KineticSonificationLab />` y `kineticDopplerEngine`.
+2. `src/features/astrobiology`: exporta `<AstrobiologyLab />` y `evaluateProbabilisticAstrobiology`.
+3. `src/features/statistics`: exporta `<TemporalStatsLab />` y `computeJoakoStatisticalThermodynamics`.
+4. `src/features/chemistry`: exporta `<AstroChemistryLab />`.
+Además, `src/config/projectIdentity.ts` exporta `PROJECT_IDENTITY` y `PROJECT_NAME`.
 
-Quiero integrarlos limpiamente usando una (o ambas) de estas opciones:
+Quiero integrarlos limpiamente como pestañas en el Mapa 2 de `src/components/ViewerPanel.tsx` (o en `RoiAnalysisModal.tsx`):
 
-OPCIÓN 1 — Integrar `<AstrobiologyLab />` como una pestaña dentro de `src/components/RoiAnalysisModal.tsx`:
+OPCIÓN A — Pestaña de Sonificación Cinética Doppler del Cursor (`"sonification"` en `ViewerPanel.tsx`):
+- Importar `{ KineticSonificationLab } from "../features/kinetic-sonification";`
+- Agregar `"sonification"` a `secondMapTab` y renderizar:
+  ```tsx
+  <div className="flex-1 w-full h-full pt-16 pb-4 px-4 overflow-y-auto">
+    <KineticSonificationLab
+      targetName={resolvedObject?.canonicalName ?? targetName ?? "Target"}
+      ra={targetRa ?? 133.795}
+      dec={targetDec ?? -7.245}
+      cutout={activeCutout}
+    />
+  </div>
+  ```
+  (Nota: cuando el usuario activa el botón "Global Screen Cursor: ON" dentro de `<KineticSonificationLab />`, el sonido responde a la velocidad y brusquedad del cursor en toda la pantalla sobre el Mapa 1 y el Mapa 2).
+
+OPCIÓN B — Pestaña de Astrobiología Probabilística (`"astrobio"` en `RoiAnalysisModal.tsx` o `ViewerPanel.tsx`):
 - Importar `{ AstrobiologyLab } from "../features/astrobiology";`
-- Agregar una pestaña `"astrobio"` ("Probabilidad Astrobiológica / Biofirmas") junto a `"current"` y `"compare"`.
-- Cuando `activeTab === "astrobio"`, renderizar:
+- Renderizar:
   ```tsx
   <AstrobiologyLab
-    roi={roi}
-    roiAnalysis={analysis}
-    targetName={targetName}
-    coordinates={{
-      ra: roi?.centerRa ?? 0,
-      dec: roi?.centerDec ?? 0,
-    }}
+    observations={observations}
+    cachedCutouts={cachedCutoutsMap?.current}
+    roi={selectedRoi}
+    roiAnalysis={roiAnalysis}
+    targetName={resolvedObject?.canonicalName ?? targetName ?? "Target"}
+    coordinates={{ ra: targetRa ?? 0, dec: targetDec ?? 0 }}
   />
   ```
 
-OPCIÓN 2 — Integrarlos como pestañas en el Mapa 2 de `src/components/ViewerPanel.tsx`:
-- Importar `{ AstrobiologyLab } from "../features/astrobiology";`
-- Importar `{ TemporalStatsLab } from "../features/statistics";`
-- Extender el estado `secondMapTab` a:
-  `"cutout" | "bands" | "sed" | "blink" | "guide" | "astrobio" | "stats"`
-- En el contenido del Mapa 2:
-  * Si `secondMapTab === "astrobio"`, renderizar:
-    ```tsx
-    <div className="flex-1 w-full h-full pt-16 pb-4 px-4 overflow-y-auto">
-      <AstrobiologyLab
-        observations={observations}
-        cachedCutouts={cachedCutoutsMap.current}
-        roi={selectedRoi}
-        roiAnalysis={roiAnalysis}
-        targetName={resolvedObject?.canonicalName ?? targetName ?? "Target"}
-        coordinates={{ ra: targetRa ?? 0, dec: targetDec ?? 0 }}
-      />
-    </div>
-    ```
-  * Si `secondMapTab === "stats"`, renderizar:
-    ```tsx
-    <div className="flex-1 w-full h-full pt-16 pb-4 px-4 overflow-y-auto">
-      <TemporalStatsLab
-        observations={observations}
-        cachedCutouts={cachedCutoutsMap.current}
-        selectedObs={selectedObs}
-        targetName={resolvedObject?.canonicalName ?? targetName ?? "Target"}
-        coordinates={{ ra: targetRa ?? 0, dec: targetDec ?? 0 }}
-        subtractZodi={subtractZodi}
-      />
-    </div>
-    ```
-
-OPCIÓN 3 — Llamar solo a las funciones matemáticas en 1 línea (sin UI adicional):
-```ts
-import { evaluateProbabilisticAstrobiology } from "../features/astrobiology";
-import { computeJoakoStatisticalThermodynamics } from "../features/statistics";
-
-const bioProb = evaluateProbabilisticAstrobiology({
-  observations,
-  cachedCutouts: cachedCutoutsMap.current,
-  roi: selectedRoi,
-  roiAnalysis,
-  targetName,
-  coordinates: { ra: targetRa ?? 0, dec: targetDec ?? 0 },
-});
-
-const joakoStats = computeJoakoStatisticalThermodynamics({
-  observations,
-  cachedCutouts: cachedCutoutsMap.current,
-  targetName,
-  coordinates: { ra: targetRa ?? 0, dec: targetDec ?? 0 },
-});
-```
+OPCIÓN C — Usar el nombre dinámico del proyecto desde Obsidian:
+- Importar `{ PROJECT_IDENTITY, PROJECT_NAME } from "../config/projectIdentity";`
+- Reemplazar el título estático del header por `{PROJECT_IDENTITY.name}`.
 """
 ================================================================================
