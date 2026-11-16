@@ -35,7 +35,7 @@ import {
 import { getRenderedCutout, prefetchFitsCutout, queryAllSpherexVersions } from "./lib/irsa";
 import { clearUrlState, parseUrlState, syncUrlState } from "./lib/urlState";
 import { useLanguage } from "./i18n/LanguageContext";
-import type { Translations } from "./i18n/translations";
+import { localizeTargetName, type Translations } from "./i18n/translations";
 import type {
   CollectionQueryMode,
   CollectionVersionData,
@@ -145,7 +145,8 @@ const INITIAL_MAP2_TAB: Map2TabInternal = {
 };
 
 export default function App() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const isEn = language === "en";
 
   // iPhone Notification Liquid Glass Specular Pointer Tracker
   useEffect(() => {
@@ -287,10 +288,10 @@ export default function App() {
     () =>
       tabs.map((tab) => ({
         id: tab.id,
-        label: tab.label,
+        label: localizeTargetName(tab.label, isEn),
         raInput: tab.raInput,
         decInput: tab.decInput,
-        targetName: tab.targetName,
+        targetName: localizeTargetName(tab.targetName, isEn),
         resolvedObject: tab.resolvedObject,
         lastCoords: tab.lastCoords,
         versions: tab.versions,
@@ -301,10 +302,10 @@ export default function App() {
         cutoutLoading: tab.cutoutLoading,
         status: translateStatusState(tab.statusState, t),
       })),
-    [tabs, t]
+    [tabs, t, isEn]
   );
 
-  const targetName = activeTab.targetName;
+  const targetName = localizeTargetName(activeTab.targetName, isEn);
   const resolvedObject = activeTab.resolvedObject;
   const loading = activeTab.loading;
   const cutoutLoading = activeTab.cutoutLoading;

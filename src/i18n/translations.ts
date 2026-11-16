@@ -1685,3 +1685,75 @@ export const translations: Record<Language, Translations> = {
     ],
   },
 };
+
+const TARGET_NAME_PAIRS: Array<{ es: string; en: string }> = [
+  { es: "Sector Celeste Personalizado", en: "Custom Sky Patch" },
+  { es: "Estrella de Barnard", en: "Barnard's Star" },
+  { es: "Galaxia M101 (Molinete)", en: "M101 Pinwheel Galaxy" },
+  { es: "Galaxia M51 (Remolino)", en: "M51 Whirlpool Galaxy" },
+  { es: "Campo Profundo NEP", en: "NEP Deep Field" },
+];
+
+export function localizeTargetName(rawName: string, isEn: boolean): string {
+  const trimmed = rawName.trim();
+  if (!trimmed) return rawName;
+  const lower = trimmed.toLowerCase();
+  for (const pair of TARGET_NAME_PAIRS) {
+    if (lower === pair.es.toLowerCase() || lower === pair.en.toLowerCase()) {
+      return isEn ? pair.en : pair.es;
+    }
+  }
+  return rawName;
+}
+
+const READING_WORD_PAIRS: Array<{ esSingular: string; esPlural: string; enSingular: string; enPlural: string }> = [
+  { esSingular: "lectura", esPlural: "lecturas", enSingular: "Reading", enPlural: "Readings" },
+  { esSingular: "muestra", esPlural: "muestras", enSingular: "Sample", enPlural: "Samples" },
+  { esSingular: "región", esPlural: "regiones", enSingular: "Region", enPlural: "Regions" },
+  { esSingular: "region", esPlural: "regiones", enSingular: "Region", enPlural: "Regions" },
+  { esSingular: "área", esPlural: "áreas", enSingular: "Area", enPlural: "Areas" },
+  { esSingular: "area", esPlural: "areas", enSingular: "Area", enPlural: "Areas" },
+  { esSingular: "época", esPlural: "épocas", enSingular: "Epoch", enPlural: "Epochs" },
+  { esSingular: "epoca", esPlural: "epocas", enSingular: "Epoch", enPlural: "Epochs" },
+  { esSingular: "punto", esPlural: "puntos", enSingular: "Point", enPlural: "Points" },
+  { esSingular: "objeto", esPlural: "objetos", enSingular: "Object", enPlural: "Objects" },
+  { esSingular: "prueba", esPlural: "pruebas", enSingular: "Test", enPlural: "Tests" },
+];
+
+export function localizeReadingName(rawName: string, isEn: boolean): string {
+  let result = rawName.trim();
+  if (!result) return rawName;
+
+  // 1. Handle "Current area (...)" / "Área actual (...)" wrapper
+  const currentAreaMatch = /^(?:Current area|Área actual|Area actual)\s*\((.+)\)$/i.exec(result);
+  if (currentAreaMatch) {
+    const innerTarget = localizeTargetName(currentAreaMatch[1], isEn);
+    return isEn ? `Current area (${innerTarget})` : `Área actual (${innerTarget})`;
+  }
+
+  // 2. Replace any known target name substrings (e.g. Sector Celeste Personalizado)
+  for (const pair of TARGET_NAME_PAIRS) {
+    const from = isEn ? pair.es : pair.en;
+    const to = isEn ? pair.en : pair.es;
+    const regex = new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    result = result.replace(regex, to);
+  }
+
+  // 3. Translate common reading words (e.g. "lectura 1" <-> "Reading 1")
+  for (const w of READING_WORD_PAIRS) {
+    if (isEn) {
+      const pluralRe = new RegExp(`\\b${w.esPlural}\\b`, "gi");
+      const singularRe = new RegExp(`\\b${w.esSingular}\\b`, "gi");
+      result = result.replace(pluralRe, w.enPlural).replace(singularRe, w.enSingular);
+    } else {
+      const pluralRe = new RegExp(`\\b${w.enPlural}\\b`, "gi");
+      const singularRe = new RegExp(`\\b${w.enSingular}\\b`, "gi");
+      const capEsPlural = w.esPlural.charAt(0).toUpperCase() + w.esPlural.slice(1);
+      const capEsSingular = w.esSingular.charAt(0).toUpperCase() + w.esSingular.slice(1);
+      result = result.replace(pluralRe, capEsPlural).replace(singularRe, capEsSingular);
+    }
+  }
+
+  return localizeTargetName(result, isEn);
+}
+

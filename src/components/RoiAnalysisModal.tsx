@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
+import { localizeReadingName, localizeTargetName } from "../i18n/translations";
 import { ChemicalFormula, Latex } from "./Latex";
 import { RoiTutorial } from "./RoiTutorial";
 import { formatDectoDMS, formatRAtoHMS } from "../lib/coordinates";
@@ -101,21 +102,38 @@ export const RoiAnalysisModal: React.FC<RoiAnalysisModalProps> = ({
     }
   }, [isOpen, initialTab]);
 
+  const localizedTargetName = useMemo(
+    () => localizeTargetName(targetName, isEn),
+    [targetName, isEn]
+  );
+
+  const localizedSavedReadings: SavedRoiReading[] = useMemo(
+    () =>
+      savedReadings.map((r) => ({
+        ...r,
+        name: localizeReadingName(r.name, isEn),
+        targetName: localizeTargetName(r.targetName, isEn),
+      })),
+    [savedReadings, isEn]
+  );
+
   // Build pool of comparable readings (current unsaved ROI + saved readings)
   const comparablePool: SavedRoiReading[] = useMemo(() => {
     const list: SavedRoiReading[] = [];
     if (roi && analysis && !isCurrentSaved) {
       list.push({
         id: "__current__",
-        name: isEn ? `Current area (${targetName})` : `Área actual (${targetName})`,
+        name: isEn
+          ? `Current area (${localizedTargetName})`
+          : `Área actual (${localizedTargetName})`,
         savedAt: new Date().toISOString(),
-        targetName,
+        targetName: localizedTargetName,
         roi,
         analysis,
       });
     }
-    return [...list, ...savedReadings];
-  }, [roi, analysis, isCurrentSaved, targetName, savedReadings, isEn]);
+    return [...list, ...localizedSavedReadings];
+  }, [roi, analysis, isCurrentSaved, localizedTargetName, localizedSavedReadings, isEn]);
 
   useEffect(() => {
     if (comparablePool.length === 0) return;
@@ -1321,18 +1339,18 @@ export const RoiAnalysisModal: React.FC<RoiAnalysisModalProps> = ({
               )}
 
               {/* Saved Readings List */}
-              {savedReadings.length > 0 && (
+              {localizedSavedReadings.length > 0 && (
                 <div
                   id="roi-tut-compare-saved"
                   className="rounded-2xl border border-white/10 overflow-hidden"
                 >
                   <div className="px-4 py-2.5 bg-white/[0.04] border-b border-white/10 text-xs font-semibold text-slate-200">
                     {isEn
-                      ? `Saved Readings in Browser (${savedReadings.length})`
-                      : `Lecturas Guardadas en el Navegador (${savedReadings.length})`}
+                      ? `Saved Readings in Browser (${localizedSavedReadings.length})`
+                      : `Lecturas Guardadas en el Navegador (${localizedSavedReadings.length})`}
                   </div>
                   <div className="divide-y divide-white/5">
-                    {savedReadings.map((r) => (
+                    {localizedSavedReadings.map((r) => (
                       <div
                         key={r.id}
                         className="px-4 py-2.5 flex items-center justify-between gap-3 text-xs hover:bg-white/[0.02]"
