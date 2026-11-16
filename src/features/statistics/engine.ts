@@ -11,6 +11,7 @@
  * + Human-Grounded Analogies ("Bajar los datos a tierra" — Aula Centauri Mentorship)
  */
 
+import { formatDectoDMS, formatRAtoHMS } from "../../lib/coordinates";
 import type { RenderedCutout, SpherexObservation } from "../../lib/types";
 import { OFFICIAL_TARGET_BENCHMARKS, STAT_CONSTANTS, type OfficialTargetBenchmark } from "./constants";
 import {
@@ -744,7 +745,7 @@ function generateStatisticalThesisMarkdownEs(data: {
   const dateStr = new Date().toISOString().split("T")[0];
   return `# Informe de Probabilidad, Estadística y Detección Multitemporal — CHRONO-SPHEREx
 **Objetivo Analizado**: ${data.benchmark.canonicalName} (${data.benchmark.spectralType})
-**Coordenadas ICRS (J2000)**: RA ${data.coordinates.ra.toFixed(5)}°, Dec ${data.coordinates.dec.toFixed(5)}°
+**Coordenadas ICRS (J2000)**: RA ${formatRAtoHMS(data.coordinates.ra)}, Dec ${formatDectoDMS(data.coordinates.dec)}
 **Modo de Datos**: \`${data.dataSourceMode}\` (Colección Oficial NASA/IPAC IRSA \`spherex_dr1\`)
 **Fecha de Emisión**: ${dateStr}
 
@@ -821,7 +822,7 @@ function generateStatisticalThesisMarkdownEn(data: {
   const dateStr = new Date().toISOString().split("T")[0];
   return `# Multi-Epoch Statistical Pattern & Astrophysics Report — CHRONO-SPHEREx
 **Target Analyzed**: ${data.benchmark.canonicalName} (${data.benchmark.spectralType})
-**ICRS Coordinates (J2000)**: RA ${data.coordinates.ra.toFixed(5)}°, Dec ${data.coordinates.dec.toFixed(5)}°
+**ICRS Coordinates (J2000)**: RA ${formatRAtoHMS(data.coordinates.ra)}, Dec ${formatDectoDMS(data.coordinates.dec)}
 **Data Source Mode**: \`${data.dataSourceMode}\` (Official NASA/IPAC IRSA \`spherex_dr1\`)
 **Evaluation Date**: ${dateStr}
 

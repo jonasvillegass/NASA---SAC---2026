@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, PanelLeftClose, PanelLeftOpen, Search, Volume2, VolumeX, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Music, PanelLeftClose, PanelLeftOpen, Search, Volume2, VolumeX, X } from "lucide-react";
+import { AstroExplorerCornerBadge, StarConstellationLoader } from "./components/AstroExploreLogo";
 import { ControlsPanel } from "./components/ControlsPanel";
+import { EntryTutorial } from "./components/EntryTutorial";
+import { ExplorerTutorial } from "./components/ExplorerTutorial";
 import { LanguageSelector } from "./components/LanguageSelector";
 import { NewSearchModal } from "./components/NewSearchModal";
 import { ObservationsPanel } from "./components/ObservationsPanel";
@@ -15,15 +18,24 @@ import {
   DEFAULT_CUTOUT_FOV_DEG,
   MAX_CUTOUT_FOV_DEG,
   clampCutoutFov,
+  formatDectoDMS,
+  formatRAtoHMS,
   parseDec,
   parseRA,
 } from "./lib/coordinates";
 import { resolveCelestialName } from "./lib/celestialResolver";
 import { NasaApiDownError } from "./lib/apiError";
+import { MusicBeatAnalyser } from "./lib/musicAnalyser";
+import {
+  playButtonSound,
+  playStartTransitionSound,
+  preloadSoundEffects,
+  setSfxEnabled,
+} from "./lib/soundEffects";
 import { getRenderedCutout, prefetchFitsCutout, queryAllSpherexVersions } from "./lib/irsa";
 import { clearUrlState, parseUrlState, syncUrlState } from "./lib/urlState";
 import { useLanguage } from "./i18n/LanguageContext";
-import type { Translations } from "./i18n/translations";
+import { localizeTargetName, type Translations } from "./i18n/translations";
 import type {
   CollectionQueryMode,
   CollectionVersionData,
@@ -133,7 +145,66 @@ const INITIAL_MAP2_TAB: Map2TabInternal = {
 };
 
 export default function App() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const isEn = language === "en";
+
+  // iPhone Notification Liquid Glass Specular Pointer Tracker
+  useEffect(() => {
+    let rafId = 0;
+    let lastX = -9999;
+    let lastY = -9999;
+
+    const updateSpecularCards = () => {
+      rafId = 0;
+      const cards = document.querySelectorAll<HTMLElement>(
+        ".glass-panel, .hero-card, .detector-guide-container, .spectral-profile-card, .blink-comparator-card"
+      );
+      const proximityRadius = 190;
+      for (let i = 0; i < cards.length; i++) {
+        const el = cards[i];
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        const x = lastX - rect.left;
+        const y = lastY - rect.top;
+        const dx = Math.max(rect.left - lastX, 0, lastX - rect.right);
+        const dy = Math.max(rect.top - lastY, 0, lastY - rect.bottom);
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < proximityRadius) {
+          const intensity = Math.pow(1 - dist / proximityRadius, 1.35);
+          el.style.setProperty("--mouse-x", `${x.toFixed(1)}px`);
+          el.style.setProperty("--mouse-y", `${y.toFixed(1)}px`);
+          el.style.setProperty("--specular-intensity", intensity.toFixed(3));
+        } else if (el.style.getPropertyValue("--specular-intensity") !== "0") {
+          el.style.setProperty("--specular-intensity", "0");
+        }
+      }
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (!rafId) {
+        rafId = window.requestAnimationFrame(updateSpecularCards);
+      }
+    };
+
+    const onPointerLeave = () => {
+      lastX = -9999;
+      lastY = -9999;
+      if (!rafId) {
+        rafId = window.requestAnimationFrame(updateSpecularCards);
+      }
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    document.addEventListener("pointerleave", onPointerLeave);
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      window.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerleave", onPointerLeave);
+    };
+  }, []);
 
   // Screen navigation state (Entry -> Loading -> Explorer)
   const [currentScreen, setCurrentScreen] = useState<ScreenId>("entry");
@@ -151,7 +222,18 @@ export default function App() {
 
   const cosmicBgRef = useRef<CosmicBackgroundHandle | null>(null);
   const [cursorSky, setCursorSky] = useState<{ ra: number; dec: number } | null>(null);
-  const [cursorAudioEnabled, setCursorAudioEnabled] = useState(true);
+  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [sfxEnabled, setSfxEnabledState] = useState(true);
+  const ENTRY_MUSIC_VOLUME = 0.15;
+  const EXPLORER_MUSIC_VOLUME = 0.03;
+  const [entryVolume, setEntryVolume] = useState<number>(ENTRY_MUSIC_VOLUME);
+  const [explorerVolume, setExplorerVolume] = useState<number>(EXPLORER_MUSIC_VOLUME);
+  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const musicAnalyserRef = useRef<MusicBeatAnalyser | null>(null);
+  if (!musicAnalyserRef.current) {
+    musicAnalyserRef.current = new MusicBeatAnalyser();
+  }
+  const prevScreenRef = useRef<ScreenId>(currentScreen);
   const [warping, setWarping] = useState(false);
 
   const [raInput, setRaInput] = useState("08h55m10.831s");
@@ -206,10 +288,10 @@ export default function App() {
     () =>
       tabs.map((tab) => ({
         id: tab.id,
-        label: tab.label,
+        label: localizeTargetName(tab.label, isEn),
         raInput: tab.raInput,
         decInput: tab.decInput,
-        targetName: tab.targetName,
+        targetName: localizeTargetName(tab.targetName, isEn),
         resolvedObject: tab.resolvedObject,
         lastCoords: tab.lastCoords,
         versions: tab.versions,
@@ -220,10 +302,10 @@ export default function App() {
         cutoutLoading: tab.cutoutLoading,
         status: translateStatusState(tab.statusState, t),
       })),
-    [tabs, t]
+    [tabs, t, isEn]
   );
 
-  const targetName = activeTab.targetName;
+  const targetName = localizeTargetName(activeTab.targetName, isEn);
   const resolvedObject = activeTab.resolvedObject;
   const loading = activeTab.loading;
   const cutoutLoading = activeTab.cutoutLoading;
@@ -352,9 +434,9 @@ export default function App() {
             err instanceof NasaApiDownError
               ? { type: "map2ApiDown" }
               : {
-                  type: "customError",
-                  message: err instanceof Error ? err.message : "",
-                },
+                type: "customError",
+                message: err instanceof Error ? err.message : "",
+              },
         }));
       } finally {
         if (cutoutRequestsByTabRef.current.get(tabId)?.reqId === reqId) {
@@ -395,8 +477,8 @@ export default function App() {
         loading: true,
         statusState: {
           type: "queryingSia",
-          ra: raDeg.toFixed(5),
-          dec: decDeg.toFixed(5),
+          ra: formatRAtoHMS(raDeg),
+          dec: formatDectoDMS(decDeg),
           collection: colMode,
         },
       }));
@@ -421,14 +503,14 @@ export default function App() {
           lastCoords: { ra: raDeg, dec: decDeg, size: sizeNum },
           ...(targetObsList.length === 0
             ? {
-                cutout: null,
-                statusState: {
-                  type: "noImagesFound",
-                  collection: "SPHEREx DR1 Wide (spherex_dr1)",
-                  ra: raDeg.toFixed(4),
-                  dec: decDeg.toFixed(4),
-                },
-              }
+              cutout: null,
+              statusState: {
+                type: "noImagesFound",
+                collection: "SPHEREx DR1 Wide (spherex_dr1)",
+                ra: formatRAtoHMS(raDeg),
+                dec: formatDectoDMS(decDeg),
+              },
+            }
             : {}),
         }));
       } catch (err) {
@@ -438,9 +520,9 @@ export default function App() {
             err instanceof NasaApiDownError
               ? { type: "map2ApiDown" }
               : {
-                  type: "customError",
-                  message: err instanceof Error ? err.message : "",
-                },
+                type: "customError",
+                message: err instanceof Error ? err.message : "",
+              },
         }));
       } finally {
         updateTab(tabId, (tab) => ({ ...tab, loading: false }));
@@ -745,41 +827,65 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [urlErrorModal]);
 
+  // Shared full warp + loading animation when leaving the entry screen
+  const runEntryExitTransition = useCallback(
+    async (
+      warpTarget: { ra: number; dec: number } | null,
+      workPromise: Promise<unknown>
+    ) => {
+      const WARP_DURATION_MS = 1550;
+      playStartTransitionSound();
+      setWarping(true);
+      setCurrentScreen("loading");
+      setLoadingProgress(20);
+
+      const warpPromise =
+        cosmicBgRef.current?.warpTo(warpTarget, WARP_DURATION_MS) ??
+        new Promise<void>((resolve) => window.setTimeout(resolve, WARP_DURATION_MS));
+
+      const minDurationPromise = new Promise<void>((resolve) =>
+        window.setTimeout(resolve, WARP_DURATION_MS)
+      );
+
+      const step1Timer = window.setTimeout(() => {
+        setLoadingProgress(60);
+      }, 420);
+      const step2Timer = window.setTimeout(() => {
+        setLoadingProgress(90);
+      }, 980);
+
+      await Promise.all([
+        warpPromise,
+        minDurationPromise,
+        Promise.race([
+          workPromise,
+          new Promise<void>((resolve) => window.setTimeout(resolve, WARP_DURATION_MS + 200)),
+        ]),
+      ]);
+
+      window.clearTimeout(step1Timer);
+      window.clearTimeout(step2Timer);
+      setLoadingProgress(100);
+      setWarping(false);
+
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
+      setCurrentScreen("explorer");
+    },
+    []
+  );
+
   // Launch from Screen 1 (Entry) -> Warp + Screen 2 (Loading) -> Screen 3 (Explorer)
   const launchExplorer = useCallback(async () => {
-    setWarping(true);
     const raDeg = parseRA(raInput);
     const decDeg = parseDec(decInput);
     const warpTarget = raDeg !== null && decDeg !== null ? { ra: raDeg, dec: decDeg } : null;
-    const warpPromise = cosmicBgRef.current?.warpTo(warpTarget, 1200) ?? Promise.resolve();
-
-    setCurrentScreen("loading");
-    setLoadingProgress(25);
 
     const searchPromise = versions
       ? Promise.resolve()
       : executeSearch(raInput, decInput, collectionMode, band, radius, size);
 
-    const stepTimer = window.setTimeout(() => {
-      setLoadingProgress(85);
-    }, 320);
-
-    await Promise.all([
-      warpPromise,
-      Promise.race([
-        searchPromise,
-        new Promise((resolve) => window.setTimeout(resolve, 1400)),
-      ]),
-    ]);
-
-    window.clearTimeout(stepTimer);
-    setLoadingProgress(100);
-    setWarping(false);
-
-    window.setTimeout(() => {
-      setCurrentScreen("explorer");
-    }, 200);
-  }, [versions, executeSearch, raInput, decInput, collectionMode, band, radius, size]);
+    await runEntryExitTransition(warpTarget, searchPromise);
+  }, [versions, executeSearch, raInput, decInput, collectionMode, band, radius, size, runEntryExitTransition]);
 
   const launchToCoords = useCallback(
     async (params: {
@@ -791,7 +897,6 @@ export default function App() {
       preset?: TargetPreset | null;
       resolved?: ResolvedCelestialObject | null;
     }) => {
-      setWarping(true);
       const nextCollection = params.preset?.collection ?? collectionMode;
       const nextTargetName =
         params.targetLabel ?? params.preset?.label ?? t.chrono.customSkyPatch;
@@ -810,13 +915,6 @@ export default function App() {
         forceReuse: true,
       });
 
-      const warpPromise =
-        cosmicBgRef.current?.warpTo({ ra: params.raDeg, dec: params.decDeg }, 1200) ??
-        Promise.resolve();
-
-      setCurrentScreen("loading");
-      setLoadingProgress(25);
-
       const searchPromise = executeSearchForTab(
         tabId,
         params.ra,
@@ -827,34 +925,22 @@ export default function App() {
         size
       );
 
-      const stepTimer = window.setTimeout(() => {
-        setLoadingProgress(85);
-      }, 320);
-
-      await Promise.all([
-        warpPromise,
-        Promise.race([
-          searchPromise,
-          new Promise((resolve) => window.setTimeout(resolve, 1400)),
-        ]),
-      ]);
-
-      window.clearTimeout(stepTimer);
-      setLoadingProgress(100);
-      setWarping(false);
-
-      window.setTimeout(() => {
-        setCurrentScreen("explorer");
-      }, 200);
+      await runEntryExitTransition({ ra: params.raDeg, dec: params.decDeg }, searchPromise);
     },
-    [band, collectionMode, executeSearch, radius, size, t.chrono.customSkyPatch]
+    [band, collectionMode, executeSearchForTab, openOrReuseMap2Tab, radius, size, t.chrono.customSkyPatch, runEntryExitTransition]
   );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setActivePresetId(null);
+    const raDeg = parseRA(raInput);
+    const decDeg = parseDec(decInput);
+    const label =
+      raDeg !== null && decDeg !== null
+        ? `${formatRAtoHMS(raDeg)} · ${formatDectoDMS(decDeg)}`
+        : `${raInput}, ${decInput}`;
     const tabId = openOrReuseMap2Tab({
-      label: `${raInput}, ${decInput}`,
+      label,
       raInput,
       decInput,
       targetName: t.chrono.customSkyPatch,
@@ -866,8 +952,14 @@ export default function App() {
   const handleSubmitCoords = useCallback(
     (raStr: string, decStr: string) => {
       setActivePresetId(null);
+      const raDeg = parseRA(raStr);
+      const decDeg = parseDec(decStr);
+      const label =
+        raDeg !== null && decDeg !== null
+          ? `${formatRAtoHMS(raDeg)} · ${formatDectoDMS(decDeg)}`
+          : `${raStr}, ${decStr}`;
       const tabId = openOrReuseMap2Tab({
-        label: `${raStr}, ${decStr}`,
+        label,
         raInput: raStr,
         decInput: decStr,
         targetName: t.chrono.customSkyPatch,
@@ -1028,13 +1120,13 @@ export default function App() {
 
   const handleQueryAtCoords = useCallback(
     (raDeg: number, decDeg: number) => {
-      const raStr = raDeg.toFixed(5);
-      const decStr = decDeg.toFixed(5);
+      const raStr = formatRAtoHMS(raDeg);
+      const decStr = formatDectoDMS(decDeg);
       setActivePresetId(null);
       setRaInput(raStr);
       setDecInput(decStr);
       const tabId = openOrReuseMap2Tab({
-        label: `${raDeg.toFixed(2)}°, ${decDeg.toFixed(2)}°`,
+        label: `${raStr} · ${decStr}`,
         raInput: raStr,
         decInput: decStr,
         targetName: t.chrono.customSkyPatch,
@@ -1109,24 +1201,116 @@ export default function App() {
 
   const selectedObs = observations[selectedIdx] ?? null;
 
+  // Sync SFX enabled state
+  useEffect(() => {
+    setSfxEnabled(sfxEnabled);
+  }, [sfxEnabled]);
+
+  // Global button click sound effect for interactive UI buttons
+  useEffect(() => {
+    const handleButtonClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const btn = target?.closest("button, .btn-press") as HTMLElement | null;
+      if (!btn) return;
+      if (btn instanceof HTMLButtonElement && btn.disabled) return;
+      if (btn.getAttribute("aria-disabled") === "true") return;
+      if (btn.dataset.sfx === "none") return;
+      playButtonSound();
+    };
+
+    document.addEventListener("click", handleButtonClick, true);
+    return () => {
+      document.removeEventListener("click", handleButtonClick, true);
+    };
+  }, []);
+
+  // Sync background music volume, mute state, and autoplay
+  useEffect(() => {
+    const audio = bgAudioRef.current;
+    const analyser = musicAnalyserRef.current;
+    if (!audio) return;
+
+    const targetVol = currentScreen === "entry" ? entryVolume : explorerVolume;
+    audio.loop = true;
+    analyser?.attach(audio);
+    analyser?.setOutput(targetVol, musicEnabled);
+
+    if (musicEnabled && audio.paused) {
+      void audio.play().catch(() => { });
+    }
+  }, [currentScreen, musicEnabled, entryVolume, explorerVolume]);
+
+  // Restart background music and lower volume when leaving the entry screen
+  useEffect(() => {
+    const audio = bgAudioRef.current;
+    const analyser = musicAnalyserRef.current;
+    const prevScreen = prevScreenRef.current;
+    prevScreenRef.current = currentScreen;
+
+    if (!audio) return;
+    if (prevScreen === "entry" && currentScreen !== "entry") {
+      audio.currentTime = 0;
+      setExplorerVolume(EXPLORER_MUSIC_VOLUME);
+      analyser?.attach(audio);
+      analyser?.setOutput(EXPLORER_MUSIC_VOLUME, musicEnabled);
+      audio.loop = true;
+      if (musicEnabled) {
+        void audio.play().catch(() => { });
+      }
+    }
+  }, [currentScreen, musicEnabled]);
+
+  // Unlock background music autoplay & Web Audio beat analyser on first user interaction
+  useEffect(() => {
+    const tryPlayBgMusic = () => {
+      preloadSoundEffects();
+      const audio = bgAudioRef.current;
+      if (!audio) return;
+      musicAnalyserRef.current?.attach(audio);
+      musicAnalyserRef.current?.unlock();
+      if (!musicEnabled || !audio.paused) return;
+      void audio.play().catch(() => { });
+    };
+
+    window.addEventListener("pointerdown", tryPlayBgMusic, { passive: true });
+    window.addEventListener("keydown", tryPlayBgMusic, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", tryPlayBgMusic);
+      window.removeEventListener("keydown", tryPlayBgMusic);
+    };
+  }, [musicEnabled]);
+
+  const sampleMusic = useCallback(
+    (dt: number) =>
+      musicAnalyserRef.current?.sample(dt) ?? { bass: 0, mid: 0, energy: 0, beat: 0 },
+    []
+  );
+
+  const activeVolume = currentScreen === "entry" ? entryVolume : explorerVolume;
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#080B10] text-slate-100 select-none">
+      {/* Background Space Music */}
+      <audio ref={bgAudioRef} src="/music.mp3" loop autoPlay preload="auto" />
       {/* Interactive 3D Galaxy + Starfield + Celestial Graticule Canvas */}
       <CosmicBackground
         ref={cosmicBgRef}
         mode={currentScreen === "explorer" ? "explorer" : "gate"}
-        cursorAudio={currentScreen === "entry" && cursorAudioEnabled}
+        cursorAudio={currentScreen === "entry" && sfxEnabled}
         onCursorSky={setCursorSky}
+        sampleMusic={sampleMusic}
       />
 
       {/* Top-Left Back & Sidebar Toggle Pills (Explorer only) */}
       {currentScreen === "explorer" && (
         <div className="fixed top-6 left-5 sm:left-7 z-30 flex items-center gap-2">
           <button
+            id="tutorial-exp-back"
             type="button"
             onClick={() => {
               setSidebarOpen(false);
               setCurrentScreen("entry");
+              void cosmicBgRef.current?.warpTo(null, 950);
             }}
             aria-label={t.chrono.backButton}
             title={t.chrono.backButton}
@@ -1137,16 +1321,16 @@ export default function App() {
           </button>
 
           <button
+            id="tutorial-exp-panel"
             type="button"
             onClick={() => setSidebarOpen((open) => !open)}
             aria-expanded={sidebarOpen}
             aria-label={sidebarOpen ? t.chrono.togglePanelClose : t.chrono.togglePanelOpen}
             title={sidebarOpen ? t.chrono.togglePanelClose : t.chrono.togglePanelOpen}
-            className={`btn-press glass-panel rounded-full px-3.5 py-1.5 flex items-center gap-2 text-xs font-medium cursor-pointer transition-colors ${
-              sidebarOpen
+            className={`btn-press glass-panel rounded-full px-3.5 py-1.5 flex items-center gap-2 text-xs font-medium cursor-pointer transition-colors ${sidebarOpen
                 ? "border-[#00D2FF]/60 text-[#00D2FF] bg-[#00D2FF]/10"
                 : "text-slate-200 hover:text-white hover:border-[#00D2FF]/45"
-            }`}
+              }`}
           >
             {sidebarOpen ? (
               <PanelLeftClose className="w-3.5 h-3.5 text-[#00D2FF]" />
@@ -1157,6 +1341,7 @@ export default function App() {
           </button>
 
           <button
+            id="tutorial-exp-new-search"
             type="button"
             onClick={() => setNewSearchOpen(true)}
             aria-label={t.chrono.newSearchButton}
@@ -1167,45 +1352,115 @@ export default function App() {
             <span>{t.chrono.newSearchButton}</span>
           </button>
 
-          <ShareButton
-            variant="pill"
-            ra={raInput}
-            dec={decInput}
-            collection={collectionMode}
-            band={band}
-            size={size}
-            stretch={stretch}
-            colormap={colormap}
-            subtractZodi={subtractZodi}
-          />
+          <div id="tutorial-exp-share">
+            <ShareButton
+              variant="pill"
+              ra={raInput}
+              dec={decInput}
+              collection={collectionMode}
+              band={band}
+              size={size}
+              stretch={stretch}
+              colormap={colormap}
+              subtractZodi={subtractZodi}
+            />
+          </div>
         </div>
       )}
 
-      {/* Persistent Top-Right Language & Entry Audio Pills */}
+      {/* Persistent Top-Right Language, Music & SFX Controls */}
       <div className="fixed top-6 right-7 z-30 flex items-center gap-2">
-        {currentScreen === "entry" && (
-          <button
-            type="button"
-            onClick={() => setCursorAudioEnabled((prev) => !prev)}
-            aria-pressed={cursorAudioEnabled}
-            aria-label={t.chrono.cursorAudioAria}
-            title={cursorAudioEnabled ? t.chrono.cursorAudioOn : t.chrono.cursorAudioOff}
-            className={`btn-press glass-panel rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors ${
-              cursorAudioEnabled
-                ? "text-[#00D2FF] border-[#00D2FF]/45 hover:border-[#00D2FF]/75"
-                : "text-slate-400 hover:text-white"
+        <button
+          type="button"
+          onClick={() => {
+            setMusicEnabled((prev) => {
+              const next = !prev;
+              if (next && activeVolume === 0) {
+                if (currentScreen === "entry") {
+                  setEntryVolume(ENTRY_MUSIC_VOLUME);
+                } else {
+                  setExplorerVolume(EXPLORER_MUSIC_VOLUME);
+                }
+              }
+              return next;
+            });
+          }}
+          aria-pressed={musicEnabled}
+          aria-label={t.chrono.musicAria}
+          title={musicEnabled ? t.chrono.musicOn : t.chrono.musicOff}
+          className={`btn-press glass-panel rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors ${musicEnabled
+              ? "text-[#00D2FF] border-[#00D2FF]/45 hover:border-[#00D2FF]/75"
+              : "text-slate-400 hover:text-white"
             }`}
-          >
-            {cursorAudioEnabled ? (
-              <Volume2 className="w-3.5 h-3.5 shrink-0" />
-            ) : (
-              <VolumeX className="w-3.5 h-3.5 shrink-0" />
-            )}
-            <span className="hidden sm:inline">
-              {cursorAudioEnabled ? t.chrono.cursorAudioOn : t.chrono.cursorAudioOff}
-            </span>
-          </button>
-        )}
+        >
+          <Music className={`w-3.5 h-3.5 shrink-0 ${musicEnabled ? "" : "opacity-50"}`} />
+          <span className="hidden sm:inline">
+            {musicEnabled ? t.chrono.musicOn : t.chrono.musicOff}
+          </span>
+        </button>
+
+        <div className="glass-panel rounded-full px-3 py-1.5 flex items-center gap-2">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={musicEnabled ? activeVolume : 0}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (currentScreen === "entry") {
+                setEntryVolume(val);
+              } else {
+                setExplorerVolume(val);
+              }
+              if (val > 0 && !musicEnabled) {
+                setMusicEnabled(true);
+              } else if (val === 0 && musicEnabled) {
+                setMusicEnabled(false);
+              }
+            }}
+            aria-label={t.chrono.musicVolumeAria}
+            title={`${t.chrono.musicVolumeAria}: ${Math.round(
+              (musicEnabled ? activeVolume : 0) * 100
+            )}%`}
+            className="apple-slider w-20 sm:w-24 cursor-pointer"
+          />
+          <span className="text-[11px] font-mono text-slate-300 w-8 text-right tabular-nums">
+            {Math.round((musicEnabled ? activeVolume : 0) * 100)}%
+          </span>
+        </div>
+
+        <button
+          type="button"
+          data-sfx="none"
+          onClick={() => {
+            setSfxEnabledState((prev) => {
+              const next = !prev;
+              setSfxEnabled(next);
+              if (next) {
+                playButtonSound();
+              }
+              return next;
+            });
+          }}
+          aria-pressed={sfxEnabled}
+          aria-label={t.chrono.sfxAria}
+          title={sfxEnabled ? t.chrono.sfxOn : t.chrono.sfxOff}
+          className={`btn-press glass-panel rounded-full px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors ${sfxEnabled
+              ? "text-[#00D2FF] border-[#00D2FF]/45 hover:border-[#00D2FF]/75"
+              : "text-slate-400 hover:text-white"
+            }`}
+        >
+          {sfxEnabled ? (
+            <Volume2 className="w-3.5 h-3.5 shrink-0" />
+          ) : (
+            <VolumeX className="w-3.5 h-3.5 shrink-0" />
+          )}
+          <span className="hidden sm:inline">
+            {sfxEnabled ? t.chrono.sfxOn : t.chrono.sfxOff}
+          </span>
+        </button>
+
         <LanguageSelector />
       </div>
 
@@ -1214,9 +1469,8 @@ export default function App() {
       {/* ===================================================================== */}
       <section
         id="screen-entry"
-        className={`screen ${
-          currentScreen === "entry" ? "is-active" : "is-hidden"
-        } flex-col items-center justify-center`}
+        className={`screen ${currentScreen === "entry" ? "is-active" : "is-hidden"
+          } flex-col items-center justify-center`}
       >
         <SpaceGate
           raInput={raInput}
@@ -1232,52 +1486,26 @@ export default function App() {
         />
       </section>
 
+      <EntryTutorial active={currentScreen === "entry"} />
+      <ExplorerTutorial
+        active={currentScreen === "explorer"}
+        sidebarOpen={sidebarOpen}
+        secondMapOpen={secondMapOpen}
+        onToggleSecondMap={handleToggleSecondMap}
+      />
+
       {/* ===================================================================== */}
-      {/* SCREEN 2: LOADING TRANSITION (Analyzing space... with Rocket)         */}
+      {/* SCREEN 2: LOADING TRANSITION                                          */}
       {/* ===================================================================== */}
       <section
         id="screen-loading"
-        className={`screen ${
-          currentScreen === "loading" ? "is-active" : "is-hidden"
-        } items-center justify-center px-6`}
+        className={`screen ${currentScreen === "loading" ? "is-active" : "is-hidden"
+          } items-center justify-center`}
       >
-        <div className="glass-panel rounded-[24px] px-10 py-8 flex flex-col items-center text-center min-w-[300px]">
-          {/* Animated Launching Rocket */}
-          <div className="relative mb-5 flex items-center justify-center">
-            <div className="rocket-animate text-[#00D2FF] drop-shadow-[0_0_20px_rgba(0,210,255,0.6)]">
-              <svg
-                className="w-12 h-12 overflow-visible"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path
-                  className="flame-animate"
-                  d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
-                  stroke="#FFB703"
-                />
-                <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
-                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
-              </svg>
-            </div>
-          </div>
-
-          <p className="text-base font-medium tracking-tight text-white mb-4">
-            {t.chrono.loadingLabel}
-          </p>
-
-          {/* Razor-thin progress bar */}
-          <div className="w-56 h-[3px] rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#00D2FF] shadow-[0_0_12px_#00D2FF] transition-all duration-300 ease-out"
-              style={{ width: `${loadingProgress}%` }}
-            />
-          </div>
-        </div>
+        <StarConstellationLoader
+          progress={loadingProgress}
+          statusText={t.chrono.loadingLabel}
+        />
       </section>
 
       {/* ===================================================================== */}
@@ -1285,24 +1513,21 @@ export default function App() {
       {/* ===================================================================== */}
       <section
         id="screen-explorer"
-        className={`screen ${
-          currentScreen === "explorer" ? "is-active" : "is-hidden"
-        } p-5 pt-16 sm:p-7 sm:pt-16 flex-col lg:flex-row`}
+        className={`screen ${currentScreen === "explorer" ? "is-active" : "is-hidden"
+          } p-5 pt-16 sm:p-7 sm:pt-16 flex-col lg:flex-row`}
       >
         <div
           aria-hidden={!sidebarOpen}
-          className={`shrink-0 overflow-hidden transition-[width,max-height,margin,opacity] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-            sidebarOpen
+          className={`shrink-0 overflow-hidden transition-[width,max-height,margin,opacity] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${sidebarOpen
               ? "w-full max-h-[46vh] mb-5 opacity-100 lg:w-[310px] lg:max-h-full lg:mb-0 lg:mr-5"
               : "w-full max-h-0 mb-0 opacity-0 pointer-events-none lg:w-0 lg:max-h-full lg:mb-0 lg:mr-0"
-          }`}
+            }`}
         >
           <div
-            className={`w-full lg:w-[310px] h-full transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-              sidebarOpen
+            className={`w-full lg:w-[310px] h-full transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${sidebarOpen
                 ? "translate-y-0 lg:translate-x-0"
                 : "-translate-y-3 lg:translate-y-0 lg:-translate-x-5"
-            }`}
+              }`}
           >
             <ControlsPanel
               raInput={raInput}
@@ -1475,6 +1700,8 @@ export default function App() {
           handleSubmitCoords(ra, dec);
         }}
       />
+
+      <AstroExplorerCornerBadge visible={(currentScreen === "entry" || currentScreen === "explorer") && !warping} />
     </div>
   );
 }

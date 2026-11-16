@@ -23,6 +23,9 @@ import {
 } from "../lib/coordinates";
 import { useLanguage } from "../i18n/LanguageContext";
 import { CursorAudioEngine } from "../lib/cursorAudio";
+import type { MusicMetrics } from "../lib/musicAnalyser";
+import { playCoordChangeSound } from "../lib/soundEffects";
+import { CoordinateFormatToggle } from "./CoordinateFormatToggle";
 import type {
   CollectionQueryMode,
   ResolvedCelestialObject,
@@ -87,6 +90,7 @@ export interface CosmicBackgroundProps {
   mode?: "gate" | "explorer";
   cursorAudio?: boolean;
   onCursorSky?: (sky: { ra: number; dec: number } | null) => void;
+  sampleMusic?: (dt: number) => MusicMetrics;
 }
 
 const DEG = Math.PI / 180;
@@ -202,12 +206,13 @@ function viewToSky(
 }
 
 export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgroundProps>(
-  function CosmicBackground({ mode = "gate", cursorAudio = true, onCursorSky }, ref) {
+  function CosmicBackground({ mode = "gate", cursorAudio = true, onCursorSky, sampleMusic }, ref) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const modeRef = useRef(mode);
     const cursorAudioRef = useRef(cursorAudio);
     const audioEngineRef = useRef<CursorAudioEngine | null>(null);
     const onCursorSkyRef = useRef(onCursorSky);
+    const sampleMusicRef = useRef(sampleMusic);
     const warpRef = useRef<{
       start: number;
       duration: number;
@@ -220,6 +225,7 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
     modeRef.current = mode;
     cursorAudioRef.current = cursorAudio;
     onCursorSkyRef.current = onCursorSky;
+    sampleMusicRef.current = sampleMusic;
 
     useEffect(() => {
       if (mode !== "gate" || !cursorAudio) {
@@ -468,6 +474,11 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
         ctx.fillRect(0, 0, w, h);
 
         const fade = 1 - dim * 0.62;
+        const gateFactor = reduced ? 0 : 1 - dim;
+        const music: MusicMetrics =
+          !reduced && modeRef.current === "gate" && sampleMusicRef.current
+            ? sampleMusicRef.current(dt)
+            : { bass: 0, mid: 0, energy: 0, beat: 0 };
 
         const neb = [
           [w * 0.22, h * 0.28, Math.max(w, h) * 0.45, "0,140,200", 0.1],
@@ -487,8 +498,10 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
 
         const vpX = w / 2 + focusX * w - nx * 14;
         const vpY = h / 2 + focusY * h - ny * 14;
-        const speed = reduced ? 0 : 0.012 + warp * 1.9;
-        const scale = Math.max(w, h) * 0.5;
+        const musicSpeedBoost = gateFactor * (music.bass * 0.045 + music.beat * 0.09);
+        const speed = reduced ? 0 : 0.012 + warp * 1.9 + musicSpeedBoost;
+        const scale =
+          Math.max(w, h) * 0.5 * (1 + gateFactor * (music.bass * 0.025 + music.beat * 0.045));
         for (const s of stars) {
           s.pz = s.z;
           s.z -= speed * dt * (warp > 0 ? 1 : 0.4);
@@ -501,7 +514,11 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
           const px = vpX + (s.x / s.z) * scale * 0.5;
           const py = vpY + (s.y / s.z) * scale * 0.5;
           if (px < -50 || px > w + 50 || py < -50 || py > h + 50) continue;
-          const bright = Math.min(1, (1 - s.z) * 1.3 + 0.15) * fade;
+          const bright =
+            Math.min(
+              1,
+              ((1 - s.z) * 1.3 + 0.15) * (1 + gateFactor * (music.energy * 0.3 + music.beat * 0.45))
+            ) * fade;
           if (warp > 0.05) {
             const ox = vpX + (s.x / s.pz) * scale * 0.5;
             const oy = vpY + (s.y / s.pz) * scale * 0.5;
@@ -515,13 +532,18 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
             ctx.lineTo(px + (ox - px) * tail, py + (oy - py) * tail);
             ctx.stroke();
           } else {
-            const size = (1 - s.z) * 1.6 + 0.4;
+            const size = ((1 - s.z) * 1.6 + 0.4) * (1 + gateFactor * music.beat * 0.45);
             ctx.fillStyle = `rgba(226,236,255,${bright * 0.75})`;
             ctx.fillRect(px, py, size, size);
           }
         }
 
-        const gScale = Math.min(w, h) * (0.5 + dim * 0.1) * (1 + warp * 2.6);
+        const warpExpand = wstate && !reduced ? Math.pow(warpProgress, 0.75) * 2.8 : 0;
+        const gScale =
+          Math.min(w, h) *
+          (0.5 + dim * 0.1) *
+          (1 + warpExpand) *
+          (1 + gateFactor * (music.bass * 0.055 + music.beat * 0.075));
         const gcx = w * 0.5 - nx * 26 + focusX * w * 0.5;
         const gcy = h * 0.5 - ny * 18 + focusY * h * 0.5;
         const tilt = (62 + ny * 7) * DEG;
@@ -529,12 +551,13 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
         const cosT = Math.cos(tilt);
         const sinT = Math.sin(tilt);
         const camZ = 2.4;
-        const galaxyAlpha = fade * (1 - warp * 0.85) * (1 - dim * 0.35);
+        const warpFade = wstate && !reduced ? 1 - Math.pow(warpProgress, 2) * 0.75 : 1;
+        const galaxyAlpha = fade * warpFade * (1 - dim * 0.35);
         const presenceR = Math.min(w, h) * 0.16;
         const mx = mouse.sx;
         const my = mouse.sy;
         const presence = mouse.inside && !reduced ? 1 - dim : 0;
-        const spin = reduced ? 0 : dt;
+        const spin = reduced ? 0 : dt * (1 + gateFactor * (music.energy * 1.4 + music.beat * 2.4));
 
         for (const p of galaxy) {
           p.theta += p.omega * spin * (1 + warp * 6);
@@ -562,16 +585,19 @@ export const CosmicBackground = forwardRef<CosmicBackgroundHandle, CosmicBackgro
             }
           }
           if (sx < -4 || sx > w + 4 || sy < -4 || sy > h + 4) continue;
-          const alpha = Math.min(1, (p.alpha + boost) * galaxyAlpha * (0.6 + persp * 0.4));
+          const alpha = Math.min(
+            1,
+            (p.alpha + boost) * galaxyAlpha * (0.6 + persp * 0.4) * (1 + gateFactor * music.beat * 0.28)
+          );
           if (alpha < 0.02) continue;
           ctx.fillStyle = `rgba(${p.rgb},${alpha})`;
-          const size = p.size * persp * (1 + warp * 0.8);
+          const size = p.size * persp * (1 + warp * 0.8 + gateFactor * music.beat * 0.35);
           ctx.fillRect(sx, sy, size, size);
         }
 
-        const coreR = gScale * 0.22;
+        const coreR = gScale * (0.22 + gateFactor * music.beat * 0.04);
         const core = ctx.createRadialGradient(gcx, gcy, 0, gcx, gcy, coreR);
-        core.addColorStop(0, `rgba(255,214,140,${0.32 * galaxyAlpha})`);
+        core.addColorStop(0, `rgba(255,214,140,${(0.32 + gateFactor * music.beat * 0.16) * galaxyAlpha})`);
         core.addColorStop(0.4, `rgba(255,170,60,${0.1 * galaxyAlpha})`);
         core.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = core;
@@ -870,6 +896,7 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
   };
 
   const handlePickKnownTarget = (target: GateKnownTarget) => {
+    playCoordChangeSound();
     setSelectedTargetId(target.id);
     setDropdownOpen(false);
     animateTelemetryFill(target.raHms, target.decDms);
@@ -943,12 +970,6 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
 
       {/* CONTENEDOR CENTRAL CON LOS 3 BLOQUES */}
       <div className="relative z-10 w-full max-w-[540px] flex flex-col gap-3.5 my-auto">
-        <div className="text-center mb-1">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-[-0.025em] text-white">
-            {t.chrono.entryTitle}
-          </h1>
-        </div>
-
         {/* TARJETA HERO — Free Navigation */}
         <div
           id="hero-start-card"
@@ -1013,6 +1034,7 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
 
         {/* BLOQUE OBLIGATORIO 1 — Search by Coordinates (HMS / DMS or Degrees) */}
         <form
+          id="tutorial-coords-card"
           onSubmit={handleSearchSubmit}
           className="glass-panel rounded-[20px] p-4 sm:p-5 border border-white/12 space-y-3"
         >
@@ -1026,43 +1048,12 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
               </h3>
             </div>
 
-            <div
-              role="group"
-              aria-label={isEn ? "Coordinate format" : "Formato de coordenadas"}
-              title={
-                isEn
-                  ? "Switch between sexagesimal (HMS/DMS) and decimal degrees (DEG)"
-                  : "Cambiar entre sexagesimal (HMS/DMS) y grados decimales (DEG)"
-              }
-              className="inline-flex items-center p-0.5 rounded-xl bg-black/55 border border-white/12 shrink-0"
-            >
-              <button
-                type="button"
-                onClick={() => handleSetCoordinateFormat("hms")}
-                disabled={!coordsValid}
-                aria-pressed={!isCurrentlyDecimal}
-                className={`px-2 py-0.5 rounded-[9px] text-[10px] font-mono transition-all cursor-pointer disabled:opacity-40 ${
-                  !isCurrentlyDecimal
-                    ? "bg-[#00D2FF]/20 text-[#00D2FF] border border-[#00D2FF]/55 font-semibold shadow-[0_0_10px_rgba(0,210,255,0.22)]"
-                    : "text-slate-400 hover:text-slate-200 border border-transparent"
-                }`}
-              >
-                HMS/DMS
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetCoordinateFormat("deg")}
-                disabled={!coordsValid}
-                aria-pressed={isCurrentlyDecimal}
-                className={`px-2 py-0.5 rounded-[9px] text-[10px] font-mono transition-all cursor-pointer disabled:opacity-40 ${
-                  isCurrentlyDecimal
-                    ? "bg-[#00D2FF]/20 text-[#00D2FF] border border-[#00D2FF]/55 font-semibold shadow-[0_0_10px_rgba(0,210,255,0.22)]"
-                    : "text-slate-400 hover:text-slate-200 border border-transparent"
-                }`}
-              >
-                DEG
-              </button>
-            </div>
+            <CoordinateFormatToggle
+              isDecimal={isCurrentlyDecimal}
+              disabled={!coordsValid}
+              isEn={isEn}
+              onChange={handleSetCoordinateFormat}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1095,11 +1086,6 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
                       : "border-amber-400/60 focus:border-amber-400"
                 }`}
               />
-              {raDeg === null && (
-                <div className="text-[10px] font-mono text-amber-300/90 px-0.5">
-                  {isEn ? "Invalid RA format" : "Formato RA inválido"}
-                </div>
-              )}
             </div>
 
             <div className="space-y-1">
@@ -1131,11 +1117,6 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
                       : "border-amber-400/60 focus:border-amber-400"
                 }`}
               />
-              {decDeg === null && (
-                <div className="text-[10px] font-mono text-amber-300/90 px-0.5">
-                  {isEn ? "Invalid Dec format" : "Formato Dec inválido"}
-                </div>
-              )}
             </div>
           </div>
 
@@ -1148,6 +1129,7 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
 
           <button
             type="submit"
+            data-sfx="none"
             disabled={warping || loading}
             className="btn-press w-full py-2.5 px-4 rounded-xl bg-[#00D2FF]/20 hover:bg-[#00D2FF]/30 border border-[#00D2FF]/75 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(0,210,255,0.22)] cursor-pointer disabled:opacity-50"
           >
@@ -1159,8 +1141,7 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
             <span>{isEn ? "Search" : "Buscar"}</span>
             {coordsValid && (
               <span className="font-mono text-[11px] text-[#00D2FF] ml-1">
-                ({raDeg.toFixed(2)}°, {decDeg >= 0 ? "+" : ""}
-                {decDeg.toFixed(2)}°)
+                ({formatRAtoHMS(raDeg)}, {formatDectoDMS(decDeg)})
               </span>
             )}
           </button>
@@ -1168,6 +1149,7 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
 
         {/* BLOQUE OBLIGATORIO 2 — Example Celestial Bodies */}
         <div
+          id="tutorial-presets-card"
           ref={dropdownRef}
           className="glass-panel rounded-[20px] p-4 sm:p-5 border border-white/12 space-y-2.5 relative z-30"
         >
@@ -1199,9 +1181,6 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
                     — {isEn ? activeKnownTarget.subtitleEn : activeKnownTarget.subtitleEs}
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-[#00D2FF] shrink-0 ml-2">
-                  ({activeKnownTarget.shortCoords})
-                </span>
               </div>
               <ChevronDown
                 className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
@@ -1211,13 +1190,14 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
             </button>
 
             {dropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-[172px] overflow-y-auto rounded-2xl bg-[#0B101B]/95 backdrop-blur-2xl border border-[#00D2FF]/40 shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-white/10">
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-[122px] overflow-y-auto rounded-2xl bg-[#0B101B]/95 backdrop-blur-2xl border border-[#00D2FF]/40 shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-white/10">
                 {GATE_KNOWN_TARGETS.map((item) => {
                   const active = selectedTargetId === item.id;
                   return (
                     <button
                       key={item.id}
                       type="button"
+                      data-sfx="none"
                       onClick={() => handlePickKnownTarget(item)}
                       className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
                         active
@@ -1225,18 +1205,13 @@ export const SpaceGate: React.FC<SpaceGateProps> = ({
                           : "hover:bg-white/[0.06] text-slate-200"
                       }`}
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-[13px] font-semibold text-white">
-                            {item.label}
-                          </span>
-                          <span className="font-mono text-[11px] text-[#00D2FF]">
-                            ({item.shortCoords})
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {isEn ? item.subtitleEn : item.subtitleEs}
-                        </p>
+                      <div className="flex items-center gap-2 min-w-0 leading-5">
+                        <span className="text-xs sm:text-[13px] font-semibold text-white shrink-0">
+                          {item.label}
+                        </span>
+                        <span className="text-[11px] text-slate-400 truncate">
+                          — {isEn ? item.subtitleEn : item.subtitleEs}
+                        </span>
                       </div>
                       <span className="text-[10px] font-mono text-slate-400 shrink-0">
                         {active ? "✓" : "→"}

@@ -111,7 +111,7 @@ export function mjdToUtc(mjd: number | null): { date: string; dateTime: string }
 export interface AxisTick {
   /** Posición normalizada [0..1] a lo largo del eje (X: izq->der, Y: arriba->abajo) */
   fraction: number;
-  /** Etiqueta formateada en grados, ej. "3.05°" o "-42.80°" */
+  /** Etiqueta formateada en HMS (RA) o DMS (Dec) */
   label: string;
   /** Valor numérico en grados */
   value: number;
@@ -227,11 +227,85 @@ export function getTargetImageFraction(
   };
 }
 
+/**
+ * Formatea RA (grados) en HMS compacto para etiquetas de grilla y ejes.
+ */
+export function formatRAtoHMSCompact(deg: number): string {
+  const totalSec = Math.round(((((deg % 360) + 360) % 360) * 240) * 10) / 10;
+  const wrapped = ((totalSec % 86400) + 86400) % 86400;
+  const h = Math.floor(wrapped / 3600);
+  const rem = wrapped - h * 3600;
+  const m = Math.floor(rem / 60);
+  const s = Math.round((rem - m * 60) * 10) / 10;
+  if (Math.abs(s) < 1e-6) {
+    if (m === 0) return `${String(h).padStart(2, "0")}h`;
+    return `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}m`;
+  }
+  const sStr = Number.isInteger(s) ? String(s).padStart(2, "0") : s.toFixed(1).padStart(4, "0");
+  return `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}m${sStr}s`;
+}
+
+/**
+ * Formatea Dec (grados) en DMS compacto para etiquetas de grilla y ejes.
+ */
+export function formatDectoDMSCompact(deg: number): string {
+  const sign = deg < 0 ? "-" : "+";
+  const totalArcsec = Math.round(Math.abs(deg) * 3600 * 10) / 10;
+  const d = Math.floor(totalArcsec / 3600);
+  const rem = totalArcsec - d * 3600;
+  const m = Math.floor(rem / 60);
+  const s = Math.round((rem - m * 60) * 10) / 10;
+  if (Math.abs(s) < 1e-6) {
+    if (m === 0) return `${sign}${String(d).padStart(2, "0")}°`;
+    return `${sign}${String(d).padStart(2, "0")}°${String(m).padStart(2, "0")}'`;
+  }
+  const sStr = Number.isInteger(s) ? String(s).padStart(2, "0") : s.toFixed(1).padStart(4, "0");
+  return `${sign}${String(d).padStart(2, "0")}°${String(m).padStart(2, "0")}'${sStr}"`;
+}
+
+const NICE_SEXAGESIMAL_STEPS = [
+  0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 18000, 36000,
+];
+
+function formatSexagesimalTick(
+  valUnits: number,
+  stepUnits: number,
+  axis: "ra" | "dec"
+): string {
+  const showDecimals = stepUnits < 1;
+  const scale = showDecimals ? 10 : 1;
+
+  if (axis === "ra") {
+    const wrapped = (((Math.round(valUnits * scale) / scale) % 86400) + 86400) % 86400;
+    const h = Math.floor(wrapped / 3600);
+    const rem = wrapped - h * 3600;
+    const m = Math.floor(rem / 60);
+    const s = Math.round((rem - m * 60) * scale) / scale;
+    if (stepUnits >= 60 && Math.abs(s) < 1e-6) {
+      return `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}m`;
+    }
+    const sStr = showDecimals ? s.toFixed(1).padStart(4, "0") : String(Math.round(s)).padStart(2, "0");
+    return `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}m${sStr}s`;
+  }
+
+  const sign = valUnits < 0 ? "-" : "+";
+  const absUnits = Math.round(Math.abs(valUnits) * scale) / scale;
+  const d = Math.floor(absUnits / 3600);
+  const rem = absUnits - d * 3600;
+  const m = Math.floor(rem / 60);
+  const s = Math.round((rem - m * 60) * scale) / scale;
+  if (stepUnits >= 60 && Math.abs(s) < 1e-6) {
+    return `${sign}${String(d).padStart(2, "0")}°${String(m).padStart(2, "0")}'`;
+  }
+  const sStr = showDecimals ? s.toFixed(1).padStart(4, "0") : String(Math.round(s)).padStart(2, "0");
+  return `${sign}${String(d).padStart(2, "0")}°${String(m).padStart(2, "0")}'${sStr}"`;
+}
+
 function generateNiceTicks(
   startVal: number,
   endVal: number,
   targetCount: number,
-  wrap360: boolean
+  axis: "ra" | "dec"
 ): AxisTick[] {
   const minVal = Math.min(startVal, endVal);
   const maxVal = Math.max(startVal, endVal);
@@ -239,35 +313,33 @@ function generateNiceTicks(
 
   if (range <= 0 || !Number.isFinite(range)) return [];
 
-  const rawStep = range / targetCount;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const normalized = rawStep / magnitude;
+  const unitScale = axis === "ra" ? 240 : 3600;
+  const minUnits = minVal * unitScale;
+  const maxUnits = maxVal * unitScale;
+  const rangeUnits = maxUnits - minUnits;
+  const rawStep = rangeUnits / targetCount;
 
-  const niceFactors = [1, 2, 2.5, 4, 5, 10];
-  const niceFactor = niceFactors.find((f) => f >= normalized * 0.85) ?? 10;
-  const step = niceFactor * magnitude;
+  const step =
+    NICE_SEXAGESIMAL_STEPS.find((s) => s >= rawStep * 0.85) ??
+    Math.pow(10, Math.ceil(Math.log10(rawStep)));
 
-  const decimals = Math.max(
-    2,
-    -Math.floor(Math.log10(step)) + (niceFactor === 2.5 ? 1 : 0)
-  );
-
-  const kStart = Math.ceil(minVal / step);
-  const kEnd = Math.floor(maxVal / step);
+  const kStart = Math.ceil(minUnits / step);
+  const kEnd = Math.floor(maxUnits / step);
   const ticks: AxisTick[] = [];
 
   for (let k = kStart; k <= kEnd; k++) {
-    const val = k * step;
-    const fraction = (val - startVal) / (endVal - startVal);
-    if (fraction < 0.03 || fraction > 0.97) continue;
+    const valUnits = k * step;
+    const valDeg = valUnits / unitScale;
+    const fraction = (valDeg - startVal) / (endVal - startVal);
+    if (fraction < 0.04 || fraction > 0.96) continue;
 
-    const displayVal = wrap360 ? ((val % 360) + 360) % 360 : val;
+    const displayVal = axis === "ra" ? ((valDeg % 360) + 360) % 360 : valDeg;
     const cleanVal = Math.abs(displayVal) < 1e-12 ? 0 : displayVal;
 
     ticks.push({
       fraction,
       value: cleanVal,
-      label: `${cleanVal.toFixed(decimals)}°`,
+      label: formatSexagesimalTick(valUnits, step, axis),
     });
   }
 
@@ -362,7 +434,7 @@ export function computeAxisTicks(
   }
 
   return {
-    xTicks: generateNiceTicks(raStart, raEnd, 5, true),
-    yTicks: generateNiceTicks(decTop, decBottom, 5, false),
+    xTicks: generateNiceTicks(raStart, raEnd, 4, "ra"),
+    yTicks: generateNiceTicks(decTop, decBottom, 4, "dec"),
   };
 }

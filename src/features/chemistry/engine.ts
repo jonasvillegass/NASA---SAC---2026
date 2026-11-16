@@ -4,6 +4,7 @@
  * thermochemical equilibrium, and generates scientific case study reports.
  */
 
+import { formatDectoDMS, formatRAtoHMS } from "../../lib/coordinates";
 import { CONSTANTS, MOLECULAR_BANDS } from "./constants";
 import type {
   AstrochemicalProfile,
@@ -317,7 +318,7 @@ function generateThesisReportMarkdown(data: {
 
   return `# Astrochemical & Infrared Spectroscopic Investigation Report
 **Target**: ${data.targetName}
-**Coordinates (J2000)**: RA ${data.coords.ra.toFixed(5)}°, Dec ${data.coords.dec.toFixed(5)}°
+**Coordinates (J2000)**: RA ${formatRAtoHMS(data.coords.ra)}, Dec ${formatDectoDMS(data.coords.dec)}
 **Instrument**: SPHEREx All-Sky Spectral Survey (0.75 – 5.00 µm, 102 Spectral Channels)
 **Evaluation Date**: ${dateStr}
 

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Latex } from "../../components/Latex";
 import {
   AlertTriangle,
   Atom,
@@ -411,8 +412,8 @@ const astroBio = evaluateProbabilisticAstrobiology({
                   />
                 </div>
 
-                <div className="text-[11px] font-mono text-cyan-200/90 bg-slate-900/90 px-2.5 py-1 rounded border border-slate-800 overflow-x-auto">
-                  {pillar.formulaLatex}
+                <div className="text-[11px] text-cyan-200/90 bg-slate-900/90 px-2.5 py-1.5 rounded border border-slate-800 overflow-x-auto">
+                  <Latex math={pillar.formulaLatex} />
                 </div>
 
                 <p className="text-[11px] text-slate-300">

@@ -1,63 +1,72 @@
-# Módulo de astroquímica e infrarrojo
+# 🧪 CHRONO-SPHEREx — Módulo de Astroquímica e Infrarrojo
 
-- **Ubicación**: `src/features/chemistry/`
-- **Estado**: Módulo desacoplado en TypeScript y React (sin dependencias externas adicionales).
-
----
-
-## 1. Propósito del módulo
-
-Este módulo analiza las curvas espectrales de 102 bandas de SPHEREx ($0.75$ a $5.0\,\mu\text{m}$) para identificar bandas de absorción molecular ($\text{H}_2\text{O}$, $\text{CH}_4$, $\text{CO}_2$, $\text{CO}$, $\text{NH}_3$, PAHs) y exportar un resumen técnico con referencias en formato APA 7.ª edición.
+> **Para**: Tomás Achával y equipo de desarrollo frontend / astrofísica.  
+> **Estado**: Módulo autocontenido, desacoplado y listo para revisión.  
+> **Ubicación**: `src/features/chemistry/`  
+> **Dependencias**: 0 dependencias externas adicionales (TypeScript nativo + React + Lucide Icons).
 
 ---
 
-## 2. Ecuaciones implementadas (`src/features/chemistry/engine.ts`)
+## 📌 1. ¿Por qué este módulo y qué resuelve?
 
-### A. Ley de Beer-Lambert y profundidad óptica ($\tau$)
+En el desafío oficial de la NASA (**Planet X and SPHEREx**) y en la mentoría de **Aula Centauri**, se plantearon dos necesidades fundamentales:
+1. **La Química como Factor Decisivo**: SPHEREx no es solo una cámara; es un **espectrofotómetro de todo el cielo en 102 bandas infrarrojas** ($0.75$ a $5.0\,\mu\text{m}$). Las firmas de absorción molecular ($H_2O$ hielo, $CH_4$, $CO_2$, $CO$, $NH_3$, PAHs) son la única forma de demostrar si un objeto es un cuerpo helado del sistema solar exterior (Planeta X / TNO), una enana marrón ultrafría (WISE 0855), o una estrella fría (Barnard's Star).
+2. **El Caso de Estudio para Estudiantes e Investigadores**: Los estudiantes universitarios y profesores necesitan que la herramienta genere **conclusiones científicas formales y descargables** para tesis o trabajos prácticos, con citas APA 7.ª edición.
+
+---
+
+## 🔬 2. Fórmulas Físico-Matemáticas Implementadas
+
+Todo el cómputo de `src/features/chemistry/engine.ts` sigue libros de texto universitarios:
+
+### A. Ley de Beer-Lambert y Profundidad Óptica ($\tau$)
 $$\tau(\lambda) = \ln\left(\frac{F_{\text{continuo}}(\lambda)}{F_{\text{observado}}(\lambda)}\right)$$
-$$D = \left(1 - \frac{F_{\text{observado}}}{F_{\text{continuo}}}\right) \times 100\%$$
-*Referencia: Chang, R., & Goldsby, K. A. (2016). Química (12.ª ed.), Cap. 11.*
+$$\text{Profundidad Relativa de Absorción } D = \left(1 - \frac{F_{\text{observado}}}{F_{\text{continuo}}}\right) \times 100\%$$
+*Referencia: Chang, R. (2010). Chemistry (10th ed.), Cap. 11.*
 
-### B. Significancia estadística de absorción ($\text{SNR}$)
-Siguiendo los criterios de prueba de hipótesis de Jay Devore (*Probabilidad y Estadística para Ingeniería y Ciencias*, 9.ª ed.):
-- $\text{SNR} \ge 5\sigma$: Detección confirmada.
-- $3\sigma \le \text{SNR} < 5\sigma$: Detección moderada.
-- $2\sigma \le \text{SNR} < 3\sigma$: Detección tentativa.
-- $\text{SNR} < 2\sigma$: No concluyente (ruido de fondo).
+### B. Detección y Significancia Estadística ($SNR$)
+Siguiendo la formulación de hipótesis estadísticas y error estándar de **Jay Devore** (*Probability and Statistics for Engineering and the Sciences*, 9.ª ed.):
+- $SNR \ge 5\sigma$: Detección Confirmada / Alta Confianza.
+- $3\sigma \le SNR < 5\sigma$: Detección Moderada.
+- $2\sigma \le SNR < 3\sigma$: Detección Tentativa.
+- $SNR < 2\sigma$: Límite Superior (No concluyente).
 
-### C. Termodinámica radiativa de cuerpo negro
-- **Ley de desplazamiento de Wien**:
+### C. Termodinámica Radiativa de Cuerpo Negro
+- **Ley de Desplazamiento de Wien**:
   $$T_{\text{eff}} = \frac{2897.77\,\mu\text{m}\cdot\text{K}}{\lambda_{\text{pico}}}$$
-- **Ley de Stefan-Boltzmann**:
-  $$E_b = \sigma T_{\text{eff}}^4 \quad \left(\sigma = 5.670374 \times 10^{-8}\,\frac{\text{W}}{\text{m}^2\cdot\text{K}^4}\right)$$
-*Referencia: Young, H. D., & Freedman, R. A. (2018). Física Universitaria (14.ª ed.).*
+- **Ley de Stefan-Boltzmann (Emitancia Total)**:
+  $$j^* = \sigma T_{\text{eff}}^4 \quad \left(\sigma = 5.670374 \times 10^{-8}\,\frac{\text{W}}{\text{m}^2\cdot\text{K}^4}\right)$$
+*Referencia: Sears, F. W., & Zemansky, M. W. (2013). University Physics with Modern Physics, Cap. 18.*
 
-### D. Equilibrio termoquímico $\text{CH}_4 / \text{CO}$
-En atmósferas subestelares frías ($T < 1000\,\text{K}$), el equilibrio favorece la reducción hacia metano:
+### D. Termómetro Termoquímico de Desequilibrio ($CH_4 / CO$)
+En atmósferas frías en equilibrio ($T < 1000\,\text{K}$), el carbono se reduce a metano:
 $$\text{CO} + 3\text{H}_2 \rightleftharpoons \text{CH}_4 + \text{H}_2\text{O}$$
-La relación entre las bandas de $3.30\,\mu\text{m}$ ($\text{CH}_4$) y $4.67\,\mu\text{m}$ ($\text{CO}$) permite distinguir regímenes reductores fríos de atmósferas con mezcla vertical.
+Si la relación $CH_4 / CO \gg 1$, el cuerpo está en régimen reductor frío. Si se detecta exceso de $CO$ a baja temperatura, indica **mezcla vertical vigorosa (convección profunda)**.
 
 ---
 
-## 3. Estructura de archivos
+## 📂 3. Estructura de Archivos del Módulo
 
 ```text
 src/features/chemistry/
-├── types.ts              # Tipos de datos para moléculas, bandas y perfiles espectrales
-├── constants.ts          # Constantes físicas y catálogo de bandas moleculares
-├── engine.ts             # Cálculo de continuo, profundidad óptica, SNR y temperatura de Wien
-├── AstroChemistryLab.tsx # Componente React de visualización y exportación de informe
-├── index.ts              # Punto de exportación del módulo
-└── README.md             # Documentación técnica
+├── types.ts              # Interfaces formales de moléculas, bandas, detecciones y perfiles
+├── constants.ts          # Constantes físicas CODATA y catálogo de 8 bandas moleculares NIST/HITRAN
+├── engine.ts             # Motor de cálculo continuo, tau, SNR, Wien y generador de reporte Markdown
+├── AstroChemistryLab.tsx # Componente UI Apple-grade con tarjetas interactivas y modal de reporte
+├── index.ts              # Barrel export para importación limpia en 1 sola línea
+└── README.md             # Esta documentación técnica
 ```
 
 ---
 
-## 4. Integración en la interfaz
+## 🛠️ 4. Cómo Probarlo o Integrarlo en el Código Principal
+
+El módulo está diseñado para montarse con **solo 2 líneas de código** en `ViewerPanel.tsx` o en cualquier otro componente:
 
 ```tsx
 import { AstroChemistryLab } from "../features/chemistry";
 
+// Dentro de tu render condicional de pestañas en Mapa 2:
 {secondMapTab === "chemistry" && (
   <AstroChemistryLab
     measuredPoints={measuredChemistryPoints}
@@ -66,3 +75,5 @@ import { AstroChemistryLab } from "../features/chemistry";
   />
 )}
 ```
+
+Si el equipo decide no incluirlo en el lanzamiento principal o moverlo de lugar, **basta con remover el botón o la pestaña**, ya que no modifica ningún archivo del core de renderizado FITS o HiPS.

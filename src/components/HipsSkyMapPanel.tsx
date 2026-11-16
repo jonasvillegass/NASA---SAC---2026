@@ -17,7 +17,12 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
-import { formatDectoDMS, formatRAtoHMS } from "../lib/coordinates";
+import {
+  formatDectoDMS,
+  formatDectoDMSCompact,
+  formatRAtoHMS,
+  formatRAtoHMSCompact,
+} from "../lib/coordinates";
 import {
   getBandLabelForChannel,
   getHealpixCellCenter,
@@ -698,7 +703,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
           if (dec !== 0) {
             const decLabelPt = projectSky(ra0, dec);
             if (decLabelPt.x > 16 && decLabelPt.x < width - 36 && decLabelPt.y > 24 && decLabelPt.y < height - 24) {
-              ctx.fillText(`${dec > 0 ? "+" : ""}${dec}°`, decLabelPt.x + 4, decLabelPt.y - 3);
+              ctx.fillText(formatDectoDMSCompact(dec), decLabelPt.x + 4, decLabelPt.y - 3);
             }
           }
         }
@@ -721,7 +726,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
           const { lonDeg } = rotateToAitoffLonLat(ra, 0, ra0, dec0);
           if (Math.abs(lonDeg) < 168) {
             const eqPt = projectSky(ra, 0);
-            ctx.fillText(`${ra}°`, eqPt.x + 3, eqPt.y - 3);
+            ctx.fillText(formatRAtoHMSCompact(ra), eqPt.x + 3, eqPt.y - 3);
           }
         }
       } else {
@@ -785,7 +790,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
             labelPt.y > 54 &&
             labelPt.y < height - 54
           ) {
-            ctx.fillText(`${ra}°`, labelPt.x + 3, labelPt.y - 3);
+            ctx.fillText(formatRAtoHMSCompact(ra), labelPt.x + 3, labelPt.y - 3);
           }
         }
       }
@@ -882,40 +887,6 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
         ctx.lineTo(boxCorners[3].x, boxCorners[3].y);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-
-    // 5. Marcador de la coordenada objetivo actual (estilo CHRONO-SPHEREx)
-    if (targetCoords) {
-      const tProj = projectSky(targetCoords.ra, targetCoords.dec);
-      if (isAitoff || tProj.cosC > 0.05) {
-        ctx.save();
-        const glow = ctx.createRadialGradient(tProj.x, tProj.y, 2, tProj.x, tProj.y, 26);
-        glow.addColorStop(0, "rgba(0, 210, 255, 0.85)");
-        glow.addColorStop(0.35, "rgba(0, 210, 255, 0.22)");
-        glow.addColorStop(1, "transparent");
-        ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(tProj.x, tProj.y, 26, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(0, 210, 255, 0.7)";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(tProj.x, tProj.y, 14, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(tProj.x - 20, tProj.y);
-        ctx.lineTo(tProj.x - 6, tProj.y);
-        ctx.moveTo(tProj.x + 6, tProj.y);
-        ctx.lineTo(tProj.x + 20, tProj.y);
-        ctx.moveTo(tProj.x, tProj.y - 20);
-        ctx.lineTo(tProj.x, tProj.y - 6);
-        ctx.moveTo(tProj.x, tProj.y + 6);
-        ctx.lineTo(tProj.x, tProj.y + 20);
         ctx.stroke();
         ctx.restore();
       }
@@ -1228,6 +1199,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
 
   return (
     <div
+      id="tutorial-exp-map1"
       ref={mapViewportRef}
       className={`relative w-full h-full overflow-hidden border border-white/15 bg-black shadow-2xl select-none overscroll-none ${
         isFullscreen ? "rounded-none" : "rounded-[22px]"
@@ -1402,7 +1374,10 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
           </div>
 
           {/* Bottom-Left Layer & Zoom Pill Controls */}
-          <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+          <div
+            id="tutorial-exp-map1-controls"
+            className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2 pointer-events-none"
+          >
             <div className="glass-panel rounded-full px-3 py-1.5 flex items-center gap-1.5 text-[11px] pointer-events-auto flex-wrap">
               <button
                 type="button"
@@ -1450,7 +1425,7 @@ export const HipsSkyMapPanel: React.FC<HipsSkyMapPanelProps> = ({
                 <div className="glass-panel rounded-full px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-mono text-amber-200">
                   <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
                   <span className="hidden md:inline">
-                    {markedPoint.ra.toFixed(2)}°, {markedPoint.dec.toFixed(2)}°
+                    RA {formatRAtoHMS(markedPoint.ra)} · Dec {formatDectoDMS(markedPoint.dec)}
                   </span>
                   <button
                     type="button"

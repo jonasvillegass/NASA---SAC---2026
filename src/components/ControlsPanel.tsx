@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
+  HelpCircle,
   Layers,
   Sliders,
   Sparkles,
@@ -21,6 +22,7 @@ import {
   MIN_CUTOUT_FOV_DEG,
 } from "../lib/coordinates";
 import { useLanguage } from "../i18n/LanguageContext";
+import { SidebarTutorial } from "./SidebarTutorial";
 
 interface ControlsPanelProps {
   raInput: string;
@@ -72,7 +74,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   setSubtractZodi,
   showCrosshair,
   setShowCrosshair,
-  loading,
   resolvedObject,
   totalFound = 0,
   onClose,
@@ -84,6 +85,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   const { language, t } = useLanguage();
   const isEn = language === "en";
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   const numericSize = Math.min(
     MAX_CUTOUT_FOV_DEG,
@@ -93,9 +95,22 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   return (
     <aside className="glass-panel rounded-[22px] w-full lg:w-[310px] h-full shrink-0 p-5 flex flex-col justify-between gap-4 overflow-y-auto max-h-full">
       <div className="space-y-4">
-        {/* Close Panel */}
-        {onClose && (
-          <div className="flex items-center justify-end">
+        {/* Top Row: Sidebar Tutorial & Close Panel */}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setShowAdvanced(true);
+              setTutorialOpen(true);
+            }}
+            title={t.sidebarTutorial.buttonTitle}
+            className="btn-press px-2.5 py-1 rounded-full bg-white/5 hover:bg-[#00D2FF]/15 border border-white/10 hover:border-[#00D2FF]/45 text-[11px] font-medium text-slate-200 hover:text-[#00D2FF] flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-[#00D2FF]" />
+            <span>{t.sidebarTutorial.buttonLabel}</span>
+          </button>
+
+          {onClose && (
             <button
               type="button"
               onClick={onClose}
@@ -105,8 +120,8 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
             >
               <X className="w-3.5 h-3.5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {resolvedObject && (
           <div className="rounded-xl bg-[#00D2FF]/[0.07] border border-[#00D2FF]/30 px-3 py-2 text-[11px] flex items-center justify-between gap-2">
@@ -123,7 +138,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
         )}
 
         {/* Zoom / Field of View Slider */}
-        <div className="space-y-2 pt-1">
+        <div id="sidebar-tut-zoom" className="space-y-2 pt-1">
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium text-slate-300">{t.chrono.zoomFov}</span>
             <span className="font-mono text-[#00D2FF]">{numericSize.toFixed(2)}°</span>
@@ -147,6 +162,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
         {/* D1–D6 Spectral Bands & Versions Gallery */}
         {hasVersions && onOpenGalleryModal && (
           <button
+            id="sidebar-tut-bands"
             type="button"
             onClick={onOpenGalleryModal}
             title={t.viewer.galleryTitle}
@@ -180,7 +196,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
           {showAdvanced && (
             <div className="space-y-3 pt-1.5 text-xs">
-              <div className="grid grid-cols-2 gap-2">
+              <div id="sidebar-tut-stretch-cmap" className="grid grid-cols-2 gap-2">
                 <div>
                   <label
                     htmlFor="stretch-select"
@@ -223,7 +239,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 </div>
               </div>
 
-              <div>
+              <div id="sidebar-tut-detector">
                 <label htmlFor="band-select" className="block text-[11px] text-slate-400 mb-1">
                   {t.controls.bandLabel}
                 </label>
@@ -243,7 +259,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div id="sidebar-tut-toggles" className="flex flex-col gap-1.5">
                 <label className="flex items-center gap-2 text-xs text-slate-300 hover:text-white cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -270,6 +286,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
               {onOpenExposuresDrawer && (
                 <button
+                  id="sidebar-tut-exposures"
                   type="button"
                   onClick={onOpenExposuresDrawer}
                   className="btn-press w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs text-slate-200 cursor-pointer"
@@ -286,25 +303,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
         </div>
       </div>
 
-      {/* Subtle API Status Footer */}
-      <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-        <span className="truncate">
-          {loading
-            ? t.chrono.apiStatusQuerying
-            : totalFound > 0
-            ? t.chrono.apiStatusConnected(totalFound)
-            : t.chrono.apiStatusReady}
-        </span>
-        <span
-          className={`w-2 h-2 rounded-full shrink-0 ${
-            loading
-              ? "bg-amber-400 animate-pulse"
-              : totalFound > 0
-              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-              : "bg-[#00D2FF] shadow-[0_0_8px_#00D2FF]"
-          }`}
-        />
-      </div>
+      <SidebarTutorial open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
     </aside>
   );
 };

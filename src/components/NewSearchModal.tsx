@@ -17,6 +17,7 @@ import {
   parseRAFlexible,
   type GateKnownTarget,
 } from "./SpaceGate";
+import { CoordinateFormatToggle } from "./CoordinateFormatToggle";
 
 export interface NewSearchModalProps {
   open: boolean;
@@ -57,8 +58,10 @@ export const NewSearchModal: React.FC<NewSearchModalProps> = ({
 
   useEffect(() => {
     if (!open) return;
-    setRaInput(initialRa);
-    setDecInput(initialDec);
+    const parsedRa = parseRAFlexible(initialRa);
+    const parsedDec = parseDecFlexible(initialDec);
+    setRaInput(parsedRa !== null ? formatRAtoHMS(parsedRa) : initialRa);
+    setDecInput(parsedDec !== null ? formatDectoDMS(parsedDec) : initialDec);
     setCoordError(null);
     setDropdownOpen(false);
     setSelectedTargetId(null);
@@ -193,43 +196,12 @@ export const NewSearchModal: React.FC<NewSearchModalProps> = ({
               </h3>
             </div>
 
-            <div
-              role="group"
-              aria-label={isEn ? "Coordinate format" : "Formato de coordenadas"}
-              title={
-                isEn
-                  ? "Switch between sexagesimal (HMS/DMS) and decimal degrees (DEG)"
-                  : "Cambiar entre sexagesimal (HMS/DMS) y grados decimales (DEG)"
-              }
-              className="inline-flex items-center p-0.5 rounded-xl bg-black/55 border border-white/12 shrink-0"
-            >
-              <button
-                type="button"
-                onClick={() => handleSetCoordinateFormat("hms")}
-                disabled={!coordsValid}
-                aria-pressed={!isCurrentlyDecimal}
-                className={`px-2 py-0.5 rounded-[9px] text-[10px] font-mono transition-all cursor-pointer disabled:opacity-40 ${
-                  !isCurrentlyDecimal
-                    ? "bg-[#00D2FF]/20 text-[#00D2FF] border border-[#00D2FF]/55 font-semibold shadow-[0_0_10px_rgba(0,210,255,0.22)]"
-                    : "text-slate-400 hover:text-slate-200 border border-transparent"
-                }`}
-              >
-                HMS/DMS
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetCoordinateFormat("deg")}
-                disabled={!coordsValid}
-                aria-pressed={isCurrentlyDecimal}
-                className={`px-2 py-0.5 rounded-[9px] text-[10px] font-mono transition-all cursor-pointer disabled:opacity-40 ${
-                  isCurrentlyDecimal
-                    ? "bg-[#00D2FF]/20 text-[#00D2FF] border border-[#00D2FF]/55 font-semibold shadow-[0_0_10px_rgba(0,210,255,0.22)]"
-                    : "text-slate-400 hover:text-slate-200 border border-transparent"
-                }`}
-              >
-                DEG
-              </button>
-            </div>
+            <CoordinateFormatToggle
+              isDecimal={isCurrentlyDecimal}
+              disabled={!coordsValid}
+              isEn={isEn}
+              onChange={handleSetCoordinateFormat}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -255,11 +227,10 @@ export const NewSearchModal: React.FC<NewSearchModalProps> = ({
                   setCoordError(null);
                 }}
                 placeholder="00h 00m 00.0s / 0.0000°"
-                className={`w-full rounded-xl bg-black/50 border px-3 py-1.5 text-xs sm:text-[13px] text-white placeholder-slate-500 font-mono focus:outline-none transition-colors ${
-                  raDeg !== null
+                className={`w-full rounded-xl bg-black/50 border px-3 py-1.5 text-xs sm:text-[13px] text-white placeholder-slate-500 font-mono focus:outline-none transition-colors ${raDeg !== null
                     ? "border-white/15 focus:border-[#00D2FF]"
                     : "border-amber-400/60 focus:border-amber-400"
-                }`}
+                  }`}
               />
               {raDeg === null && (
                 <div className="text-[10px] font-mono text-amber-300/90 px-0.5">
@@ -290,11 +261,10 @@ export const NewSearchModal: React.FC<NewSearchModalProps> = ({
                   setCoordError(null);
                 }}
                 placeholder="+00° 00' 00&quot; / +0.0000°"
-                className={`w-full rounded-xl bg-black/50 border px-3 py-1.5 text-xs sm:text-[13px] text-white placeholder-slate-500 font-mono focus:outline-none transition-colors ${
-                  decDeg !== null
+                className={`w-full rounded-xl bg-black/50 border px-3 py-1.5 text-xs sm:text-[13px] text-white placeholder-slate-500 font-mono focus:outline-none transition-colors ${decDeg !== null
                     ? "border-white/15 focus:border-[#00D2FF]"
                     : "border-amber-400/60 focus:border-amber-400"
-                }`}
+                  }`}
               />
               {decDeg === null && (
                 <div className="text-[10px] font-mono text-amber-300/90 px-0.5">
@@ -331,22 +301,21 @@ export const NewSearchModal: React.FC<NewSearchModalProps> = ({
                         ? "Choose a celestial body..."
                         : "Elegir cuerpo celeste..."}
                   </span>
+                  {selectedTargetId && (
+                    <span className="text-[11px] text-slate-400 truncate hidden sm:inline">
+                      — {isEn ? activeKnownTarget.subtitleEn : activeKnownTarget.subtitleEs}
+                    </span>
+                  )}
                 </div>
-                {selectedTargetId && (
-                  <span className="font-mono text-[11px] text-[#00D2FF] shrink-0 ml-2">
-                    ({activeKnownTarget.shortCoords})
-                  </span>
-                )}
               </div>
               <ChevronDown
-                className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
-                  dropdownOpen ? "rotate-180 text-[#00D2FF]" : ""
-                }`}
+                className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${dropdownOpen ? "rotate-180 text-[#00D2FF]" : ""
+                  }`}
               />
             </button>
 
             {dropdownOpen && (
-              <div className="max-h-[172px] overflow-y-auto rounded-2xl bg-[#0B101B]/95 backdrop-blur-2xl border border-[#00D2FF]/40 shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-white/10">
+              <div className="max-h-[122px] overflow-y-auto rounded-2xl bg-[#0B101B]/95 backdrop-blur-2xl border border-[#00D2FF]/40 shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-white/10">
                 {GATE_KNOWN_TARGETS.map((item) => {
                   const active = selectedTargetId === item.id;
                   return (
@@ -354,24 +323,18 @@ export const NewSearchModal: React.FC<NewSearchModalProps> = ({
                       key={item.id}
                       type="button"
                       onClick={() => handlePickKnownTarget(item)}
-                      className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
-                        active
+                      className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${active
                           ? "bg-[#00D2FF]/15 text-white"
                           : "hover:bg-white/[0.06] text-slate-200"
-                      }`}
+                        }`}
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-[13px] font-semibold text-white">
-                            {item.label}
-                          </span>
-                          <span className="font-mono text-[11px] text-[#00D2FF]">
-                            ({item.shortCoords})
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {isEn ? item.subtitleEn : item.subtitleEs}
-                        </p>
+                      <div className="flex items-center gap-2 min-w-0 leading-5">
+                        <span className="text-xs sm:text-[13px] font-semibold text-white shrink-0">
+                          {item.label}
+                        </span>
+                        <span className="text-[11px] text-slate-400 truncate">
+                          — {isEn ? item.subtitleEn : item.subtitleEs}
+                        </span>
                       </div>
                       <span className="text-[10px] font-mono text-slate-400 shrink-0">
                         {active ? "✓" : "→"}
@@ -403,8 +366,7 @@ export const NewSearchModal: React.FC<NewSearchModalProps> = ({
             <span>{isEn ? "Search" : "Buscar"}</span>
             {coordsValid && (
               <span className="font-mono text-[11px] text-[#00D2FF] ml-1">
-                ({raDeg.toFixed(2)}°, {decDeg >= 0 ? "+" : ""}
-                {decDeg.toFixed(2)}°)
+                ({formatRAtoHMS(raDeg)}, {formatDectoDMS(decDeg)})
               </span>
             )}
           </button>

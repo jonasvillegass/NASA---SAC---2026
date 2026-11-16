@@ -13,6 +13,8 @@
  * - Sears & Zemansky (University Physics: Astrometric Kinematics & Dipole/Monopole Stability)
  */
 
+import { formatDectoDMS, formatRAtoHMS } from "../../lib/coordinates";
+
 import type {
   RenderedCutout,
   RoiChemicalAnalysisResult,
@@ -647,7 +649,7 @@ export function evaluateProbabilisticAstrobiology(
   const academicThesisMarkdownEs = [
     `# INFORME ASTROBIOLÓGICO PROBABILÍSTICO — CHRONO-SPHEREx`,
     `**Objetivo Analizado**: ${targetName} (${benchmark.archetypeLabelEs})`,
-    `**Coordenadas ICRS (J2000)**: RA ${coordinates.ra.toFixed(4)}°, Dec ${coordinates.dec.toFixed(4)}°`,
+    `**Coordenadas ICRS (J2000)**: RA ${formatRAtoHMS(coordinates.ra)}, Dec ${formatDectoDMS(coordinates.dec)}`,
     `**Modo de Datos**: \`${dataSourceMode}\` (${coveredChannelsCount}/102 canales SPHEREx, $\\text{SNR}_{\\text{coadd}} = ${coaddedSnr.toFixed(2)}\\sigma$)`,
     ``,
     `## 1. Inferencia Bayesiana Tripartita (Jay Devore, Cap. 2.4 & Catling et al., 2018)`,
@@ -674,7 +676,7 @@ export function evaluateProbabilisticAstrobiology(
   const academicThesisMarkdownEn = [
     `# PROBABILISTIC ASTROBIOLOGY ASSESSMENT REPORT — CHRONO-SPHEREx`,
     `**Target Analyzed**: ${targetName} (${benchmark.archetypeLabelEn})`,
-    `**ICRS Coordinates (J2000)**: RA ${coordinates.ra.toFixed(4)}°, Dec ${coordinates.dec.toFixed(4)}°`,
+    `**ICRS Coordinates (J2000)**: RA ${formatRAtoHMS(coordinates.ra)}, Dec ${formatDectoDMS(coordinates.dec)}`,
     `**Data Source Mode**: \`${dataSourceMode}\` (${coveredChannelsCount}/102 SPHEREx channels, $\\text{SNR}_{\\text{coadd}} = ${coaddedSnr.toFixed(2)}\\sigma$)`,
     ``,
     `## 1. Tripartite Bayesian Inference (Jay Devore, Ch. 2.4 & Catling et al., 2018)`,

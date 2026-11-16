@@ -6,6 +6,7 @@ export const LanguageSelector: React.FC = () => {
 
   return (
     <div
+      id="tutorial-language-selector"
       className="glass-panel rounded-full px-3.5 py-1.5 flex items-center gap-2 text-xs font-medium tracking-wide"
       role="group"
       aria-label={t.navbar.languageAriaLabel}

@@ -70,6 +70,7 @@ import { DetectorGuide } from "./DetectorGuide";
 import { SpectralProfile } from "./SpectralProfile";
 import { BlinkComparator } from "./BlinkComparator";
 import { RoiAnalysisModal } from "./RoiAnalysisModal";
+import { AsteroidLoadingGame } from "./AsteroidLoadingGame";
 
 interface ViewerPanelProps {
   map2Tabs: Map2TabSession[];
@@ -314,6 +315,7 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
 
 
   const cutoutViewportRef = useRef<HTMLDivElement | null>(null);
+  const loadingCardRef = useRef<HTMLDivElement | null>(null);
 
   const observations = useMemo(
     () => versions?.[activeCollection]?.observations ?? [],
@@ -630,6 +632,15 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     cutout,
   ]);
 
+  const isApiDownOrError = map2ApiDown || Boolean(status?.isError);
+  const isMap2LoadingImages =
+    secondMapOpen &&
+    secondMapTab === "cutout" &&
+    !isWaitingForSelectedDates &&
+    !displayCutout &&
+    !isApiDownOrError &&
+    (loading || cutoutLoading || isPreloadingAll);
+
   // Smooth crossfade tracking for Map 2
   useEffect(() => {
     if (
@@ -644,24 +655,50 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     }
   }, [displayCutout?.dataUrl]);
 
+  const playbackStateRef = useRef({
+    activeEpochIdx,
+    readyPlaybackFrames,
+    epochFramesLength: epochFrames.length,
+    activeCollection,
+    isLooping,
+    onSelectVersionObservation,
+  });
+  playbackStateRef.current = {
+    activeEpochIdx,
+    readyPlaybackFrames,
+    epochFramesLength: epochFrames.length,
+    activeCollection,
+    isLooping,
+    onSelectVersionObservation,
+  };
+
   // Automatic epoch playback interval (only advances once all selected frames are cached)
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || !isActive || !secondMapOpen || secondMapTab !== "cutout") return;
     if (epochFrames.length > 0 && (!allPlaybackFramesSettled || readyPlaybackFrames.length <= 1)) {
       return;
     }
     const intervalMs = Math.max(250, Math.round(950 / speedMultiplier));
     const timer = window.setInterval(() => {
-      if (readyPlaybackFrames.length > 1) {
-        const nextIdx = (activeEpochIdx + 1) % readyPlaybackFrames.length;
-        onSelectVersionObservation(activeCollection, readyPlaybackFrames[nextIdx]);
-        if (!isLooping && nextIdx === 0) {
+      const {
+        activeEpochIdx: curIdx,
+        readyPlaybackFrames: frames,
+        epochFramesLength,
+        activeCollection: col,
+        isLooping: looping,
+        onSelectVersionObservation: selectObs,
+      } = playbackStateRef.current;
+
+      if (frames.length > 1) {
+        const nextIdx = (curIdx + 1) % frames.length;
+        selectObs(col, frames[nextIdx]);
+        if (!looping && nextIdx === 0) {
           setIsPlaying(false);
         }
-      } else if (epochFrames.length === 0) {
-        const nextIdx = (activeEpochIdx + 1) % FALLBACK_EPOCHS.length;
+      } else if (epochFramesLength === 0) {
+        const nextIdx = (curIdx + 1) % FALLBACK_EPOCHS.length;
         setFallbackEpochIdx(nextIdx);
-        if (!isLooping && nextIdx === 0) {
+        if (!looping && nextIdx === 0) {
           setIsPlaying(false);
         }
       }
@@ -670,14 +707,13 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     return () => window.clearInterval(timer);
   }, [
     isPlaying,
-    isLooping,
+    isActive,
+    secondMapOpen,
+    secondMapTab,
     speedMultiplier,
     epochFrames.length,
-    readyPlaybackFrames,
+    readyPlaybackFrames.length,
     allPlaybackFramesSettled,
-    activeEpochIdx,
-    activeCollection,
-    onSelectVersionObservation,
   ]);
 
   const currentFov = clampCutoutFov(lastCoords?.size ?? DEFAULT_CUTOUT_FOV_DEG);
@@ -1131,7 +1167,10 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
   };
 
   const renderPlaybackBar = () => (
-    <div className="glass-panel rounded-2xl px-5 py-3 flex flex-wrap items-center gap-5 w-full max-w-[740px]">
+    <div
+      id={isActive ? "tutorial-exp-playback" : undefined}
+      className="glass-panel rounded-2xl px-5 py-3 flex flex-wrap items-center gap-5 w-full max-w-[740px]"
+    >
       {/* Previous / Play-Pause / Next */}
       <div className="flex items-center gap-1.5 shrink-0">
         <button
@@ -1252,13 +1291,18 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
     <>
       {secondMapOpen && (
         <div
+          id={isActive ? "tutorial-exp-map2" : undefined}
           ref={cutoutViewportRef}
           className={`relative w-full h-full min-h-[280px] overflow-hidden border border-[#00D2FF]/45 bg-black shadow-2xl select-none overscroll-none ${
             isActive ? "flex-1 flex flex-col" : "hidden"
           } ${isMap2Fullscreen ? "rounded-none" : "rounded-[22px]"}`}
         >
             {/* Top-Left Map 2 Current Date Pill + Playback Date Selector Dropdown */}
-            <div ref={dateMenuRef} className="absolute top-4 left-4 z-30 max-w-[58%]">
+            <div
+              id={isActive ? "tutorial-exp-map2-dates" : undefined}
+              ref={dateMenuRef}
+              className="absolute top-4 left-4 z-30 max-w-[58%]"
+            >
               <button
                 type="button"
                 onClick={() => setDateMenuOpen((o) => !o)}
@@ -1270,11 +1314,6 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                 <span className="font-mono font-medium text-amber-300 truncate">
                   {currentDatePillLabel}
                 </span>
-                {selectedObs && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-[#00D2FF]/20 text-[#00D2FF] text-[10px] font-bold shrink-0">
-                    {selectedObs.bandpass}
-                  </span>
-                )}
                 {(loading || cutoutLoading || isPreloadingAll) && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00D2FF] shrink-0" />
                 )}
@@ -1369,7 +1408,10 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
             </div>
 
             {/* Top-Right Map 2 Controls & Close Button */}
-            <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 flex-wrap justify-end">
+            <div
+              id={isActive ? "tutorial-exp-map2-tools" : undefined}
+              className="absolute top-4 right-4 z-20 flex items-center gap-1.5 flex-wrap justify-end"
+            >
               {/* Tool Toggle: Pan vs Select Area (ROI) */}
               {secondMapTab === "cutout" && displayCutout?.wcs && (
                 <div className="glass-panel rounded-full p-1 flex items-center gap-0.5 text-[11px]">
@@ -1542,6 +1584,8 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
             {/* Map 2 Content Body */}
             {secondMapTab === "cutout" ? (
               <div className="flex-1 w-full h-full flex items-center justify-center pl-14 pr-5 pt-16 pb-16 relative">
+                {isMap2LoadingImages && <AsteroidLoadingGame obstacleRef={loadingCardRef} />}
+
                 {isWaitingForSelectedDates ? (
                   <div className="flex flex-col items-center justify-center gap-3 p-6 text-center text-slate-400">
                     <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center">
@@ -1552,7 +1596,10 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                     </p>
                   </div>
                 ) : isPreloadingAll ? (
-                  <div className="flex flex-col items-center justify-center gap-2.5 text-slate-300 px-4 text-center">
+                  <div
+                    ref={loadingCardRef}
+                    className="relative z-20 glass-panel rounded-2xl border border-[#00D2FF]/35 bg-slate-950/90 backdrop-blur-md shadow-2xl px-6 py-4 flex flex-col items-center justify-center gap-2.5 text-slate-300 text-center"
+                  >
                     <Loader2 className="w-7 h-7 animate-spin text-[#00D2FF]" />
                     <span className="text-xs font-medium text-slate-200">
                       {t.chrono.preloadingFrames(settledPlaybackCount, playbackFrames.length)}
@@ -1834,7 +1881,7 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                               {isScanningBands ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00D2FF] shrink-0" />
                               ) : (
-                                <FlaskConical className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               )}
                               <span className="text-xs font-semibold text-white truncate">
                                 {isScanningBands
@@ -1842,8 +1889,8 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                                     ? `Processing... ${pct}%`
                                     : `Procesando... ${pct}%`
                                   : isEn
-                                    ? `Processed (${pct}%)`
-                                    : `Procesado (${pct}%)`}
+                                    ? "Completed"
+                                    : "Completado"}
                               </span>
                             </div>
                             {!isScanningBands && (
@@ -1866,19 +1913,8 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                               className={`h-full transition-all duration-300 ${
                                 isScanningBands ? "bg-[#00D2FF]" : "bg-emerald-400"
                               }`}
-                              style={{ width: `${Math.max(4, pct)}%` }}
+                              style={{ width: isScanningBands ? `${Math.max(4, pct)}%` : "100%" }}
                             />
-                          </div>
-
-                          <div className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
-                            <span>
-                              {roiAnalysis?.coveredChannelsCount ?? 0}/102{" "}
-                              {isEn ? "IR ch" : "canales IR"}
-                            </span>
-                            <span>
-                              {roiAnalysis?.detectedCount ?? 0}{" "}
-                              {isEn ? "detected" : "detectadas"}
-                            </span>
                           </div>
 
                           {!isScanningBands && roiAnalysis && (
@@ -2035,7 +2071,10 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                     )}
                   </div>
                 ) : loading || cutoutLoading ? (
-                  <div className="flex flex-col items-center justify-center gap-2.5 p-6 text-center text-slate-300">
+                  <div
+                    ref={loadingCardRef}
+                    className="relative z-20 glass-panel rounded-2xl border border-[#00D2FF]/35 bg-slate-950/90 backdrop-blur-md shadow-2xl px-6 py-5 flex flex-col items-center justify-center gap-2.5 text-center text-slate-300"
+                  >
                     <Loader2 className="w-7 h-7 animate-spin text-[#00D2FF]" />
                     <p className="text-xs font-medium text-slate-200">
                       {loading
@@ -2047,6 +2086,16 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                         {t.viewer.queryingApiSubtitle}
                       </p>
                     )}
+                  </div>
+                ) : isApiDownOrError ? (
+                  <div className="flex flex-col items-center justify-center gap-3 p-6 text-center text-rose-200">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5 text-rose-400" />
+                    </div>
+                    <p className="text-xs font-medium text-rose-200">{t.viewer.apiErrorTitle}</p>
+                    <p className="text-[11px] text-rose-300/75 max-w-xs">
+                      {t.viewer.apiErrorSubtitle}
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-3 p-6 text-center text-slate-400">
@@ -2065,10 +2114,6 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
                     <div className="glass-panel rounded-full px-3 py-1.5 text-[11px] font-mono text-slate-200 flex items-center gap-2">
                       {selectedObs ? (
                         <>
-                          <span className="text-[#00D2FF] font-semibold">
-                            {selectedObs.bandpass}
-                          </span>
-                          <span className="text-slate-500">·</span>
                           <span>
                             {selectedObs.em_min_um !== null && selectedObs.em_max_um !== null
                               ? `${selectedObs.em_min_um}–${selectedObs.em_max_um} µm`
@@ -2288,39 +2333,46 @@ const Map2TabPanel: React.FC<Map2TabPanelProps> = ({
         : null}
 
       {/* Optional Multi-Version & Multi-Band Gallery Modal */}
-      {isActive && galleryOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="glass-panel rounded-[24px] w-full max-w-4xl max-h-[85vh] overflow-y-auto p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#00D2FF]" />
-                <span>{t.viewer.galleryTitle}</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => onCloseGallery?.()}
-                className="btn-press p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {isActive &&
+        galleryOpen &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <div className="glass-panel rounded-[24px] w-full max-w-4xl max-h-[85vh] overflow-y-auto p-5 flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#00D2FF]" />
+                  <span>{t.viewer.galleryTitle}</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => onCloseGallery?.()}
+                  className="btn-press p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <MultiVersionGallery
+                versions={versions}
+                lastCoords={lastCoords}
+                stretch={stretch}
+                colormap={colormap}
+                subtractZodi={subtractZodi}
+                activeCollection={activeCollection}
+                selectedObs={selectedObs}
+                onSelectVersionObservation={(col, obs) => {
+                  onSelectVersionObservation(col, obs);
+                  onToggleSecondMap(true);
+                  onCloseGallery?.();
+                }}
+              />
             </div>
-            <MultiVersionGallery
-              versions={versions}
-              lastCoords={lastCoords}
-              stretch={stretch}
-              colormap={colormap}
-              subtractZodi={subtractZodi}
-              activeCollection={activeCollection}
-              selectedObs={selectedObs}
-              onSelectVersionObservation={(col, obs) => {
-                onSelectVersionObservation(col, obs);
-                onToggleSecondMap(true);
-                onCloseGallery?.();
-              }}
-            />
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       <RoiAnalysisModal
         isOpen={isActive && showRoiModal}

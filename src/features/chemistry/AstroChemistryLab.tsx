@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { formatDectoDMS, formatRAtoHMS } from "../../lib/coordinates";
 import {
   AlertTriangle,
   BookOpen,
@@ -89,8 +90,8 @@ export const AstroChemistryLab: React.FC<AstroChemistryLabProps> = ({
           </div>
           <p className="text-xs text-slate-400 mt-1">
             {isEn
-              ? `Physical-chemical spectrometry for ${targetName} (RA ${coordinates.ra.toFixed(3)}°, Dec ${coordinates.dec.toFixed(3)}°)`
-              : `Espectrometría físico-química para ${targetName} (RA ${coordinates.ra.toFixed(3)}°, Dec ${coordinates.dec.toFixed(3)}°)`}
+              ? `Physical-chemical spectrometry for ${targetName} (RA ${formatRAtoHMS(coordinates.ra)}, Dec ${formatDectoDMS(coordinates.dec)})`
+              : `Espectrometría físico-química para ${targetName} (RA ${formatRAtoHMS(coordinates.ra)}, Dec ${formatDectoDMS(coordinates.dec)})`}
           </p>
         </div>
 

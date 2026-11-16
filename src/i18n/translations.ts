@@ -86,6 +86,8 @@ export interface Translations {
     decAxisLabel: string;
     emptyTitle: string;
     emptySubtitle: string;
+    apiErrorTitle: string;
+    apiErrorSubtitle: string;
     queryingApiTitle: string;
     queryingApiSubtitle: string;
     detectorBand: string;
@@ -114,6 +116,9 @@ export interface Translations {
     viewModeSplit: string;
     visualZoomLabel: (zoom: string) => string;
     visualZoomReset: string;
+    asteroidGameScore: (score: number) => string;
+    asteroidGameHint: string;
+    asteroidGameAria: string;
   };
   skyMap: {
     title: string;
@@ -267,6 +272,13 @@ export interface Translations {
     cursorAudioOn: string;
     cursorAudioOff: string;
     cursorAudioAria: string;
+    musicVolumeAria: string;
+    musicOn: string;
+    musicOff: string;
+    musicAria: string;
+    sfxOn: string;
+    sfxOff: string;
+    sfxAria: string;
     molecules: {
       h2o: string;
       co2: string;
@@ -283,6 +295,94 @@ export interface Translations {
     invalidCoordsTitle: string;
     invalidCoordsMessage: (coords: string) => string;
     dismissButton: string;
+  };
+  entryTutorial: {
+    welcomeTitle: string;
+    welcomeDescription: string;
+    startButton: string;
+    skipButton: string;
+    prevButton: string;
+    nextButton: string;
+    finishButton: string;
+    replayButton: string;
+    replayTitle: string;
+    stepCounter: (current: number, total: number) => string;
+    steps: {
+      language: { title: string; description: string };
+      coordinates: { title: string; description: string };
+      presets: { title: string; description: string };
+      explore: { title: string; description: string };
+    };
+  };
+  explorerTutorial: {
+    mainPartsButton: string;
+    generalButton: string;
+    welcomeTitle: string;
+    welcomeDescription: string;
+    startGeneralButton: string;
+    skipButton: string;
+    prevButton: string;
+    nextButton: string;
+    finishButton: string;
+    stepCounter: (current: number, total: number) => string;
+    steps: {
+      back: { title: string; description: string };
+      settings: { title: string; description: string };
+      newSearch: { title: string; description: string };
+      share: { title: string; description: string };
+      playback: { title: string; description: string };
+      generalMapOverview: { title: string; description: string };
+      generalMapControls: { title: string; description: string };
+      detailedMapLoading: { title: string; description: string };
+      detailedMapDates: { title: string; description: string };
+      detailedMapTools: { title: string; description: string };
+    };
+  };
+  roiTutorial: {
+    buttonLabel: string;
+    buttonTitle: string;
+    skipButton: string;
+    prevButton: string;
+    nextButton: string;
+    finishButton: string;
+    stepCounter: (current: number, total: number) => string;
+    current: {
+      tabs: { title: string; description: string };
+      coverage: { title: string; description: string };
+      save: { title: string; description: string };
+      spectrum: { title: string; description: string };
+      classification: { title: string; description: string };
+      composition: { title: string; description: string };
+      table: { title: string; description: string };
+    };
+    compare: {
+      selectors: { title: string; description: string };
+      similarity: { title: string; description: string };
+      saved: { title: string; description: string };
+    };
+    trajectory: {
+      select: { title: string; description: string };
+      identity: { title: string; description: string };
+      kinematics: { title: string; description: string };
+      extrapolate: { title: string; description: string };
+    };
+  };
+  sidebarTutorial: {
+    buttonLabel: string;
+    buttonTitle: string;
+    skipButton: string;
+    prevButton: string;
+    nextButton: string;
+    finishButton: string;
+    stepCounter: (current: number, total: number) => string;
+    steps: {
+      zoom: { title: string; description: string };
+      bands: { title: string; description: string };
+      stretchAndColormap: { title: string; description: string };
+      detector: { title: string; description: string };
+      toggles: { title: string; description: string };
+      exposures: { title: string; description: string };
+    };
   };
   presets: TargetPreset[];
 }
@@ -381,6 +481,9 @@ export const translations: Record<Language, Translations> = {
       emptyTitle: "Aún no se ha realizado ninguna consulta",
       emptySubtitle:
         "Selecciona un cuerpo celeste o escribe coordenadas para visualizar sus imágenes detalladas",
+      apiErrorTitle: "Falló la consulta a la API de NASA/IRSA",
+      apiErrorSubtitle:
+        "El servicio no respondió correctamente. Por favor, reintenta más tarde.",
       queryingApiTitle: "Realizando consulta a la API de NASA/IRSA...",
       queryingApiSubtitle: "Buscando observaciones espectrales disponibles para estas coordenadas",
       detectorBand: "Detector / Banda",
@@ -410,6 +513,9 @@ export const translations: Record<Language, Translations> = {
       viewModeSplit: "Vista Dividida (Mapa + FITS)",
       visualZoomLabel: (zoom) => `Zoom ${zoom}x`,
       visualZoomReset: "Restablecer zoom visual (1x)",
+      asteroidGameScore: (score) => `Score: ${score}`,
+      asteroidGameHint: "¡Haz clic en los asteroides para destruirlos mientras carga!",
+      asteroidGameAria: "Minijuego de asteroides durante la carga",
     },
     skyMap: {
       title: "Mapa Celeste Interactivo SPHEREx (HiPS All-Sky Cube & MOC)",
@@ -579,7 +685,14 @@ export const translations: Record<Language, Translations> = {
       noDateLabel: "Sin fecha",
       cursorAudioOn: "Audio activo",
       cursorAudioOff: "Audio silenciado",
-      cursorAudioAria: "Activar o silenciar sonido espacial del cursor",
+      cursorAudioAria: "Activar o silenciar sonido espacial",
+      musicVolumeAria: "Volumen de la música de fondo",
+      musicOn: "Música",
+      musicOff: "Música silenciada",
+      musicAria: "Activar o silenciar música de fondo",
+      sfxOn: "Sonidos",
+      sfxOff: "Sonidos silenciados",
+      sfxAria: "Activar o silenciar efectos de sonido",
       molecules: {
         h2o: "Hielo de agua (H₂O)",
         co2: "Dióxido de carbono (CO₂)",
@@ -598,6 +711,232 @@ export const translations: Record<Language, Translations> = {
       invalidCoordsMessage: (coords) =>
         `Las coordenadas proporcionadas en el enlace${coords ? ` ("${coords}")` : ""} no son válidas. Usa un formato válido para RA (0–360° o HMS) y Dec (-90° a +90° o DMS).`,
       dismissButton: "Entendido",
+    },
+    entryTutorial: {
+      welcomeTitle: "Bienvenido al Explorador SPHEREx",
+      welcomeDescription:
+        "¿Es tu primera vez aquí? Te mostramos en 4 pasos simples cómo cambiar el idioma, ingresar coordenadas, probar astros de ejemplo o comenzar a explorar el espacio de inmediato.",
+      startButton: "Iniciar tutorial",
+      skipButton: "Omitir",
+      prevButton: "Anterior",
+      nextButton: "Siguiente",
+      finishButton: "Finalizar",
+      replayButton: "Tutorial",
+      replayTitle: "Ver tutorial de la pantalla de inicio",
+      stepCounter: (current, total) => `Paso ${current} de ${total}`,
+      steps: {
+        language: {
+          title: "1. Cambiar el idioma",
+          description:
+            "Desde este selector puedes cambiar toda la página entre Español (ES) e Inglés (EN) en cualquier momento.",
+        },
+        coordinates: {
+          title: "2. Ingresar coordenadas y formato",
+          description:
+            "Aquí escribes la Ascensión Recta (RA) y Declinación (Dec) del punto del cielo que quieras ver. Con el botón HMS/DMS | DEG de arriba a la derecha puedes cambiar entre formato horario/sexagesimal (horas, minutos y segundos) y grados decimales (por ejemplo, 133.79°).",
+        },
+        presets: {
+          title: "3. Probar con astros de ejemplo",
+          description:
+            "Si no tienes coordenadas a mano, abre este menú para elegir entre varios astros de prueba ya listos. Al seleccionar uno, sus coordenadas se completan automáticamente arriba para que solo tengas que pulsar Buscar.",
+        },
+        explore: {
+          title: "4. Explorar sin coordenadas",
+          description:
+            "¿Prefieres recorrer el cielo libremente sin ingresar datos? Haz clic en esta tarjeta para abrir directamente el mapa espacial interactivo.",
+        },
+      },
+    },
+    explorerTutorial: {
+      mainPartsButton: "Tutorial partes principales",
+      generalButton: "General",
+      welcomeTitle: "Tutorial de partes principales",
+      welcomeDescription:
+        "El recorrido General te guía paso a paso por los botones superiores, la barra de reproducción de video, el Mapa general y el Mapa detallado.",
+      startGeneralButton: "Iniciar tutorial General",
+      skipButton: "Omitir",
+      prevButton: "Anterior",
+      nextButton: "Siguiente",
+      finishButton: "Finalizar",
+      stepCounter: (current, total) => `Paso ${current} de ${total}`,
+      steps: {
+        back: {
+          title: "1. Botón Volver",
+          description:
+            "Te regresa a la pantalla de inicio para elegir otro astro de prueba, ingresar nuevas coordenadas o reiniciar la exploración.",
+        },
+        settings: {
+          title: "2. Botón Ajustes",
+          description:
+            "Abre o cierra el panel lateral de controles. Allí puedes ajustar coordenadas, colección, banda infrarroja, escala de brillo, paleta de colores y retícula.",
+        },
+        newSearch: {
+          title: "3. Botón Nueva búsqueda",
+          description:
+            "Abre una ventana rápida para buscar otro objeto celeste por nombre o coordenadas sin tener que volver a la pantalla de inicio.",
+        },
+        share: {
+          title: "4. Compartir observación",
+          description:
+            "Copia un enlace directo con tus coordenadas y ajustes actuales para que otra persona vea exactamente la misma región del cielo.",
+        },
+        playback: {
+          title: "5. Barra de reproducción de video",
+          description:
+            "Controla el video entre fechas de observación: usa ⏮ y ⏭ para avanzar o retroceder un cuadro, ▶/⏸ para reproducir o pausar, Bucle para repetir al terminar, el deslizador de Época para saltar a una fecha y Velocidad para ajustar el ritmo (0.5× a 3.0×).",
+        },
+        generalMapOverview: {
+          title: "6. Mapa general",
+          description:
+            "Es el mapa interactivo del cielo completo. Arrastra para moverte, usa la rueda para hacer zoom y haz doble clic para marcar un punto. Arriba ves las coordenadas del centro y del cursor, el nombre del objetivo, el campo de visión (FOV), el botón para abrir el Mapa detallado y pantalla completa.",
+        },
+        generalMapControls: {
+          title: "7. Botones del Mapa general",
+          description:
+            "Abajo a la izquierda controlas las capas: FITS (muestra u oculta huellas de observación), Grilla (líneas de coordenadas) y Canal espectral (µm) para explorar 102 longitudes de onda. A la derecha tienes Buscar aquí (consulta esa zona del cielo) y los controles de zoom, vista global (Todo el cielo), centrar objetivo y restablecer.",
+        },
+        detailedMapLoading: {
+          title: "8. Mapa detallado: carga y juego inicial",
+          description:
+            "Al abrir una observación en el Mapa detallado, mientras se descargan las imágenes reales de la NASA aparece un minijuego de asteroides para entretenerte en la espera. Cuando termina de cargar, ves la imagen infrarroja con zoom, coordenadas del cursor y botones para descargar en PNG o FITS.",
+        },
+        detailedMapDates: {
+          title: "9. Modificar las fechas mostradas",
+          description:
+            "Haz clic en esta píldora con la fecha y banda arriba a la izquierda para abrir el menú de Fechas de reproducción. Allí puedes marcar o desmarcar qué fechas quieres incluir en el video, elegir Todas o Ninguna y ver cuáles ya están listas.",
+        },
+        detailedMapTools: {
+          title: "10. Botones de Área, Comparar y Trayectoria",
+          description:
+            "Arriba a la derecha tienes las herramientas de análisis del Mapa detallado: Área cambia el cursor para dibujar una zona y medir su espectro químico; Comparar (aparece al guardar lecturas) permite contrastar varias áreas o fechas guardadas; y Trayectoria (con 2 o más lecturas) traza el movimiento del astro y proyecta su posición futura. Al lado tienes los controles de FOV, pantalla completa y cerrar.",
+        },
+      },
+    },
+    roiTutorial: {
+      buttonLabel: "Tutorial",
+      buttonTitle: "Ver explicación de esta vista",
+      skipButton: "Omitir",
+      prevButton: "Anterior",
+      nextButton: "Siguiente",
+      finishButton: "Finalizar",
+      stepCounter: (current, total) => `Paso ${current} de ${total}`,
+      current: {
+        tabs: {
+          title: "Pestañas de análisis",
+          description:
+            "Aquí cambias entre Área Actual (el análisis de la zona recién marcada), Comparar (para contrastar lecturas guardadas) y Trayectoria (para calcular movimiento). Al lado tienes los botones de borrar área y cerrar.",
+        },
+        coverage: {
+          title: "Cobertura FITS Real",
+          description:
+            "Indica cuántas observaciones y cuántos canales infrarrojos (de 102 totales) tienen datos reales en tu selección. Si faltan canales por cargar, el botón de escaneo los descarga para completar el espectro.",
+        },
+        save: {
+          title: "Guardar lectura",
+          description:
+            "Escribe un nombre para identificar esta medición y pulsa Guardar. Las lecturas guardadas quedan disponibles en el navegador para usarlas luego en Comparar y Trayectoria.",
+        },
+        spectrum: {
+          title: "Espectro Infrarrojo del Área",
+          description:
+            "Muestra el brillo promedio (MJy/sr) en cada longitud de onda (µm). Las líneas verticales punteadas marcan las posiciones donde distintas moléculas absorben o emiten luz infrarroja.",
+        },
+        classification: {
+          title: "Clasificación y Condiciones de vida",
+          description:
+            "A la izquierda estima qué tipo de objeto celeste coincide mejor con el espectro (junto a su temperatura Wien y pendiente). A la derecha calcula un índice orientativo de habitabilidad según la presencia combinada de agua, carbono, metano, amoníaco y PAHs.",
+        },
+        composition: {
+          title: "Composición Química Detectada",
+          description:
+            "Resume el peso relativo de cada compuesto detectado en el área. Puedes alternar entre Peso Espectral (W_λ) y Proporción Molar de Hielos (N_i).",
+        },
+        table: {
+          title: "Bandas Diagnósticas y Estimadores",
+          description:
+            "Detalla cada molécula evaluada: longitud de onda, tipo, número de muestras y si fue Detectada (≥3σ), Marginal (2–3σ) o No detectada (<2σ). Abajo muestra las fórmulas físicas de los estimadores.",
+        },
+      },
+      compare: {
+        selectors: {
+          title: "Región A y Región B",
+          description:
+            "Elige aquí las dos lecturas que quieres comparar (pueden ser zonas distintas o la misma zona en diferentes fechas).",
+        },
+        similarity: {
+          title: "Similitud Global y Métricas",
+          description:
+            "Muestra qué tan parecidas son ambas regiones: porcentaje de Similitud Global, desglose Espectral y Química, canales en común (Solapamiento), especies compartidas, la fórmula coseno utilizada y la comparación directa entre Región A y Región B.",
+        },
+        saved: {
+          title: "Lecturas Guardadas en el Navegador",
+          description:
+            "Lista todas las mediciones que guardaste con su fecha, coordenadas y canales disponibles. Puedes eliminar cualquiera con el icono de papelera.",
+        },
+      },
+      trajectory: {
+        select: {
+          title: "Selección de lecturas por fecha",
+          description:
+            "Marca al menos 2 lecturas de fechas distintas para calcular la trayectoria del objeto. Usa Todas o Ninguna para seleccionar rápidamente.",
+        },
+        identity: {
+          title: "Verificación de Identidad",
+          description:
+            "Comprueba si las lecturas elegidas pertenecen realmente al mismo cuerpo celeste comparando su similitud espectral promedio, mínima y especies en común.",
+        },
+        kinematics: {
+          title: "Cinemática y Modelo de Movimiento",
+          description:
+            "Elige entre ajuste Lineal (velocidad constante) o Cuadrático (disponible con 3 o más fechas). Debajo verás el Lapso Total, Desplazamiento Neto, Velocidad Aparente y Dirección (PA).",
+        },
+        extrapolate: {
+          title: "Estimar fecha y Trazar en Mapa",
+          description:
+            "Elige una fecha futura (o usa +30 d, +6 m, +1 año) para calcular las coordenadas estimadas del astro y su margen de error (1σ). Pulsa Trazar en Mapa 2 para ver la ruta dibujada sobre el Mapa detallado.",
+        },
+      },
+    },
+    sidebarTutorial: {
+      buttonLabel: "Tutorial",
+      buttonTitle: "Explicar ajustes de la barra lateral",
+      skipButton: "Omitir",
+      prevButton: "Anterior",
+      nextButton: "Siguiente",
+      finishButton: "Finalizar",
+      stepCounter: (current, total) => `Paso ${current} de ${total}`,
+      steps: {
+        zoom: {
+          title: "1. Zoom (Campo visual)",
+          description:
+            "Desliza este control para cambiar el tamaño del recorte del cielo (en grados) que se descarga y se muestra en el Mapa detallado.",
+        },
+        bands: {
+          title: "2. Bandas D1–D6",
+          description:
+            "Abre una galería visual donde puedes ver y comparar la misma región del cielo en las 6 bandas infrarrojas del telescopio SPHEREx (D1 a D6) y sus distintas versiones.",
+        },
+        stretchAndColormap: {
+          title: "3. Escala de flujo y Paleta de color",
+          description:
+            "Escala de flujo ajusta cómo se resalta el brillo (Asinh es ideal para ver detalles débiles y brillantes a la vez). Paleta de color cambia los colores falsos de la imagen (Inferno, Viridis, Plasma, Magma o Gris) para distinguir mejor las estructuras.",
+        },
+        detector: {
+          title: "4. Detector / Banda",
+          description:
+            "Filtra las observaciones por una banda de longitud de onda específica (de D1 a D6, entre 0.75 y 5.00 µm) o deja Todas para ver el rango completo.",
+        },
+        toggles: {
+          title: "5. Luz zodiacal y Retícula",
+          description:
+            "Restar luz zodiacal (ZODI) elimina el brillo del polvo del sistema solar para aislar mejor tu objeto. Mostrar retícula activa o oculta la cruz guía sobre las coordenadas centrales.",
+        },
+        exposures: {
+          title: "6. Exposiciones FITS",
+          description:
+            "Abre el listado completo con todas las imágenes FITS disponibles en esta zona para elegir e inspeccionar manualmente cualquier observación individual.",
+        },
+      },
     },
     presets: [
       {
@@ -790,6 +1129,9 @@ export const translations: Record<Language, Translations> = {
       emptyTitle: "No query performed yet",
       emptySubtitle:
         "Select a celestial body or enter coordinates to view its detailed images",
+      apiErrorTitle: "NASA/IRSA API request failed",
+      apiErrorSubtitle:
+        "The service did not respond properly. Please retry later.",
       queryingApiTitle: "Querying NASA/IRSA API...",
       queryingApiSubtitle: "Searching for available spectral observations at these coordinates",
       detectorBand: "Detector / Band",
@@ -819,6 +1161,9 @@ export const translations: Record<Language, Translations> = {
       viewModeSplit: "Split View (Map + FITS)",
       visualZoomLabel: (zoom) => `Zoom ${zoom}x`,
       visualZoomReset: "Reset visual zoom (1x)",
+      asteroidGameScore: (score) => `Score: ${score}`,
+      asteroidGameHint: "Click the asteroids to destroy them while loading!",
+      asteroidGameAria: "Asteroid mini-game while loading",
     },
     skyMap: {
       title: "SPHEREx Interactive Sky Map (HiPS All-Sky Cube & MOC)",
@@ -988,7 +1333,14 @@ export const translations: Record<Language, Translations> = {
       noDateLabel: "No date",
       cursorAudioOn: "Audio on",
       cursorAudioOff: "Audio muted",
-      cursorAudioAria: "Toggle cursor space audio",
+      cursorAudioAria: "Toggle space audio",
+      musicVolumeAria: "Background music volume",
+      musicOn: "Music",
+      musicOff: "Music muted",
+      musicAria: "Toggle background music",
+      sfxOn: "Sounds",
+      sfxOff: "Sounds muted",
+      sfxAria: "Toggle sound effects",
       molecules: {
         h2o: "Water Ice (H₂O)",
         co2: "Carbon Dioxide (CO₂)",
@@ -1007,6 +1359,232 @@ export const translations: Record<Language, Translations> = {
       invalidCoordsMessage: (coords) =>
         `The coordinates provided in the link${coords ? ` ("${coords}")` : ""} are not valid. Please use a valid format for RA (0–360° or HMS) and Dec (-90° to +90° or DMS).`,
       dismissButton: "Got it",
+    },
+    entryTutorial: {
+      welcomeTitle: "Welcome to SPHEREx Explorer",
+      welcomeDescription:
+        "First time here? In 4 simple steps we'll show you how to change the language, enter coordinates, try sample celestial objects, or start exploring space right away.",
+      startButton: "Start tutorial",
+      skipButton: "Skip",
+      prevButton: "Back",
+      nextButton: "Next",
+      finishButton: "Finish",
+      replayButton: "Tutorial",
+      replayTitle: "View home screen tutorial",
+      stepCounter: (current, total) => `Step ${current} of ${total}`,
+      steps: {
+        language: {
+          title: "1. Change the language",
+          description:
+            "Use this selector to switch the entire page between Spanish (ES) and English (EN) at any time.",
+        },
+        coordinates: {
+          title: "2. Enter coordinates & format",
+          description:
+            "Type the Right Ascension (RA) and Declination (Dec) of the sky region you want to observe. Use the HMS/DMS | DEG toggle at the top right to switch between sexagesimal format (hours, minutes, seconds) and decimal degrees (e.g. 133.79°).",
+        },
+        presets: {
+          title: "3. Try sample celestial objects",
+          description:
+            "Don't have coordinates handy? Open this menu to pick from several ready-to-use sample objects. Selecting one automatically fills its coordinates above so you just need to click Search.",
+        },
+        explore: {
+          title: "4. Explore without coordinates",
+          description:
+            "Prefer to browse the sky freely without entering anything? Click this card to jump straight into the interactive space map.",
+        },
+      },
+    },
+    explorerTutorial: {
+      mainPartsButton: "Main parts tutorial",
+      generalButton: "General",
+      welcomeTitle: "Main Parts Tutorial",
+      welcomeDescription:
+        "The General tour guides you step by step through the top buttons, the video playback bar, the General Map, and the Detailed Map.",
+      startGeneralButton: "Start General tutorial",
+      skipButton: "Skip",
+      prevButton: "Back",
+      nextButton: "Next",
+      finishButton: "Finish",
+      stepCounter: (current, total) => `Step ${current} of ${total}`,
+      steps: {
+        back: {
+          title: "1. Back Button",
+          description:
+            "Returns you to the home screen so you can pick another sample object, enter new coordinates, or start over.",
+        },
+        settings: {
+          title: "2. Settings Button",
+          description:
+            "Opens or closes the side control panel, where you can adjust coordinates, collection, infrared band, brightness stretch, colormap, and crosshair.",
+        },
+        newSearch: {
+          title: "3. New Search Button",
+          description:
+            "Opens a quick search dialog to look up another celestial object by name or coordinates without leaving the explorer.",
+        },
+        share: {
+          title: "4. Share Observation",
+          description:
+            "Copies a direct link with your current coordinates and display settings so anyone can open the exact same sky view.",
+        },
+        playback: {
+          title: "5. Video Playback Bar",
+          description:
+            "Controls the multi-date time-lapse: use ⏮ and ⏭ to step one frame back or forward, ▶/⏸ to play or pause, Loop to repeat continuously, the Epoch slider to jump to any date, and Speed to adjust playback rate (0.5× to 3.0×).",
+        },
+        generalMapOverview: {
+          title: "6. General Map",
+          description:
+            "This is the interactive all-sky map. Drag to pan, scroll to zoom, and double-click to drop a pin. At the top you can see center and cursor coordinates, target name, field of view (FOV), the button to open the Detailed Map, and fullscreen.",
+        },
+        generalMapControls: {
+          title: "7. General Map Controls",
+          description:
+            "Bottom-left buttons toggle map layers: FITS (observation footprints), Grid (coordinate lines), and Spectral Channel (µm) for the 102-wavelength slider. Bottom-right buttons let you Search here (query the current center) and control zoom, All-Sky view, center on target, and reset.",
+        },
+        detailedMapLoading: {
+          title: "8. Detailed Map: Loading & Initial Game",
+          description:
+            "When opening an observation in the Detailed Map, an interactive asteroid minigame appears while real NASA FITS images download. Once loaded, you see the infrared image with zoom/pan, cursor coordinates, and PNG or FITS download buttons.",
+        },
+        detailedMapDates: {
+          title: "9. Modifying Displayed Dates",
+          description:
+            "Click the date and band pill at the top-left to open the Playback Dates menu. Here you can check or uncheck which observation dates appear in the video, select All or None, and see which frames are cached.",
+        },
+        detailedMapTools: {
+          title: "10. Area, Compare & Trajectory Buttons",
+          description:
+            "Top-right analysis tools for the Detailed Map: Area switches the cursor to draw a box and measure its infrared chemical spectrum; Compare (available after saving readings) lets you compare multiple saved regions or dates; and Trajectory (with 2+ saved readings) traces object motion and extrapolates its future sky position. Beside them are FOV, fullscreen, and close controls.",
+        },
+      },
+    },
+    roiTutorial: {
+      buttonLabel: "Tutorial",
+      buttonTitle: "Explain this view",
+      skipButton: "Skip",
+      prevButton: "Back",
+      nextButton: "Next",
+      finishButton: "Finish",
+      stepCounter: (current, total) => `Step ${current} of ${total}`,
+      current: {
+        tabs: {
+          title: "Analysis Tabs",
+          description:
+            "Switch between Current Area (the newly selected region), Compare (contrast saved readings), and Trajectory (motion tracking). Next to them are buttons to clear the area or close.",
+        },
+        coverage: {
+          title: "Real FITS Coverage",
+          description:
+            "Shows how many observations and infrared channels (out of 102) have real data in your selection. If channels are missing, use the scan button to download the full spectrum.",
+        },
+        save: {
+          title: "Save Reading",
+          description:
+            "Enter a name for this measurement and click Save. Saved readings stay in your browser so you can use them later in Compare and Trajectory.",
+        },
+        spectrum: {
+          title: "Area Infrared Spectrum",
+          description:
+            "Displays average brightness (MJy/sr) across wavelengths (µm). Vertical dashed lines mark where specific molecules absorb or emit infrared light.",
+        },
+        classification: {
+          title: "Classification & Life Conditions",
+          description:
+            "On the left, estimates which celestial object type best matches the spectrum (with Wien temperature and slope). On the right, computes an indicative habitability index from water, carbon, methane, ammonia, and PAHs.",
+        },
+        composition: {
+          title: "Detected Chemical Composition",
+          description:
+            "Summarizes the relative share of each detected compound. You can toggle between Spectral Weight (W_λ) and Ice Molar Ratio (N_i).",
+        },
+        table: {
+          title: "Diagnostic Bands & Estimators",
+          description:
+            "Lists each evaluated molecule: wavelength, type, sample count, and status—Detected (≥3σ), Marginal (2–3σ), or Not detected (<2σ)—plus the physical estimator formulas below.",
+        },
+      },
+      compare: {
+        selectors: {
+          title: "Region A & Region B",
+          description:
+            "Pick the two readings you want to compare (different sky regions or the same region at different dates).",
+        },
+        similarity: {
+          title: "Overall Similarity & Metrics",
+          description:
+            "Shows how closely the two regions match: Overall Similarity percentage, Spectral and Chemical scores, overlapping channels, shared species, cosine similarity formula, and a side-by-side summary of Region A vs Region B.",
+        },
+        saved: {
+          title: "Browser-Saved Readings",
+          description:
+            "Lists all your saved measurements with date, coordinates, and available channels. You can remove any entry with the trash icon.",
+        },
+      },
+      trajectory: {
+        select: {
+          title: "Select Readings by Date",
+          description:
+            "Check at least 2 readings from distinct dates to compute the object's trajectory. Use All or None for quick selection.",
+        },
+        identity: {
+          title: "Identity Check",
+          description:
+            "Verifies whether the selected readings chemically and spectrally match the same celestial body using average/minimum similarity and shared species.",
+        },
+        kinematics: {
+          title: "Kinematics & Motion Model",
+          description:
+            "Choose between a Linear fit (constant velocity) or Quadratic fit (requires 3+ dates). Below you'll see Total Span, Net Displacement, Apparent Speed, and Direction (PA).",
+        },
+        extrapolate: {
+          title: "Estimate Date & Trace on Map",
+          description:
+            "Pick a target date (or use +30 d, +6 mo, +1 yr) to compute estimated sky coordinates and 1σ uncertainty. Click Trace on Map 2 to draw the path directly on the Detailed Map.",
+        },
+      },
+    },
+    sidebarTutorial: {
+      buttonLabel: "Tutorial",
+      buttonTitle: "Explain sidebar settings",
+      skipButton: "Skip",
+      prevButton: "Back",
+      nextButton: "Next",
+      finishButton: "Finish",
+      stepCounter: (current, total) => `Step ${current} of ${total}`,
+      steps: {
+        zoom: {
+          title: "1. Zoom (Field of View)",
+          description:
+            "Drag this slider to change the sky cutout size (in degrees) downloaded and displayed in the Detailed Map.",
+        },
+        bands: {
+          title: "2. Bands D1–D6",
+          description:
+            "Opens a visual gallery to inspect and compare the same sky region across all 6 SPHEREx infrared detector bands (D1–D6) and available versions.",
+        },
+        stretchAndColormap: {
+          title: "3. Flux Stretch & Colormap",
+          description:
+            "Flux Stretch controls how brightness is scaled (Asinh is best for seeing both faint and bright details). Colormap changes the false-color palette (Inferno, Viridis, Plasma, Magma, or Gray) to highlight infrared structures.",
+        },
+        detector: {
+          title: "4. Detector / Band",
+          description:
+            "Filters observations by a specific infrared wavelength band (D1 through D6, from 0.75 to 5.00 µm), or keeps All for the full range.",
+        },
+        toggles: {
+          title: "5. Zodiacal Light & Crosshair",
+          description:
+            "Subtract zodiacal light (ZODI) removes foreground solar-system dust glow to isolate the target. Show crosshair toggles the center guide marker.",
+        },
+        exposures: {
+          title: "6. FITS Exposures",
+          description:
+            "Opens the full list of all FITS exposures found in this sky region so you can manually pick and inspect any individual observation.",
+        },
+      },
     },
     presets: [
       {
@@ -1107,3 +1685,75 @@ export const translations: Record<Language, Translations> = {
     ],
   },
 };
+
+const TARGET_NAME_PAIRS: Array<{ es: string; en: string }> = [
+  { es: "Sector Celeste Personalizado", en: "Custom Sky Patch" },
+  { es: "Estrella de Barnard", en: "Barnard's Star" },
+  { es: "Galaxia M101 (Molinete)", en: "M101 Pinwheel Galaxy" },
+  { es: "Galaxia M51 (Remolino)", en: "M51 Whirlpool Galaxy" },
+  { es: "Campo Profundo NEP", en: "NEP Deep Field" },
+];
+
+export function localizeTargetName(rawName: string, isEn: boolean): string {
+  const trimmed = rawName.trim();
+  if (!trimmed) return rawName;
+  const lower = trimmed.toLowerCase();
+  for (const pair of TARGET_NAME_PAIRS) {
+    if (lower === pair.es.toLowerCase() || lower === pair.en.toLowerCase()) {
+      return isEn ? pair.en : pair.es;
+    }
+  }
+  return rawName;
+}
+
+const READING_WORD_PAIRS: Array<{ esSingular: string; esPlural: string; enSingular: string; enPlural: string }> = [
+  { esSingular: "lectura", esPlural: "lecturas", enSingular: "Reading", enPlural: "Readings" },
+  { esSingular: "muestra", esPlural: "muestras", enSingular: "Sample", enPlural: "Samples" },
+  { esSingular: "región", esPlural: "regiones", enSingular: "Region", enPlural: "Regions" },
+  { esSingular: "region", esPlural: "regiones", enSingular: "Region", enPlural: "Regions" },
+  { esSingular: "área", esPlural: "áreas", enSingular: "Area", enPlural: "Areas" },
+  { esSingular: "area", esPlural: "areas", enSingular: "Area", enPlural: "Areas" },
+  { esSingular: "época", esPlural: "épocas", enSingular: "Epoch", enPlural: "Epochs" },
+  { esSingular: "epoca", esPlural: "epocas", enSingular: "Epoch", enPlural: "Epochs" },
+  { esSingular: "punto", esPlural: "puntos", enSingular: "Point", enPlural: "Points" },
+  { esSingular: "objeto", esPlural: "objetos", enSingular: "Object", enPlural: "Objects" },
+  { esSingular: "prueba", esPlural: "pruebas", enSingular: "Test", enPlural: "Tests" },
+];
+
+export function localizeReadingName(rawName: string, isEn: boolean): string {
+  let result = rawName.trim();
+  if (!result) return rawName;
+
+  // 1. Handle "Current area (...)" / "Área actual (...)" wrapper
+  const currentAreaMatch = /^(?:Current area|Área actual|Area actual)\s*\((.+)\)$/i.exec(result);
+  if (currentAreaMatch) {
+    const innerTarget = localizeTargetName(currentAreaMatch[1], isEn);
+    return isEn ? `Current area (${innerTarget})` : `Área actual (${innerTarget})`;
+  }
+
+  // 2. Replace any known target name substrings (e.g. Sector Celeste Personalizado)
+  for (const pair of TARGET_NAME_PAIRS) {
+    const from = isEn ? pair.es : pair.en;
+    const to = isEn ? pair.en : pair.es;
+    const regex = new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    result = result.replace(regex, to);
+  }
+
+  // 3. Translate common reading words (e.g. "lectura 1" <-> "Reading 1")
+  for (const w of READING_WORD_PAIRS) {
+    if (isEn) {
+      const pluralRe = new RegExp(`\\b${w.esPlural}\\b`, "gi");
+      const singularRe = new RegExp(`\\b${w.esSingular}\\b`, "gi");
+      result = result.replace(pluralRe, w.enPlural).replace(singularRe, w.enSingular);
+    } else {
+      const pluralRe = new RegExp(`\\b${w.enPlural}\\b`, "gi");
+      const singularRe = new RegExp(`\\b${w.enSingular}\\b`, "gi");
+      const capEsPlural = w.esPlural.charAt(0).toUpperCase() + w.esPlural.slice(1);
+      const capEsSingular = w.esSingular.charAt(0).toUpperCase() + w.esSingular.slice(1);
+      result = result.replace(pluralRe, capEsPlural).replace(singularRe, capEsSingular);
+    }
+  }
+
+  return localizeTargetName(result, isEn);
+}
+
